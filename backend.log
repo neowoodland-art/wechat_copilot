@@ -1,0 +1,341 @@
+cd /home/neogh/wechat_copilot/cpp_rpa && ./build_fixed.sh
+=== 构建C++ RPA模块 (修正版) ===
+检查必要依赖...
+清理之前的构建文件...
+运行CMake配置...
+-- The C compiler identification is GNU 15.2.1
+-- The CXX compiler identification is GNU 15.2.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found OpenCV: /usr (found version "4.13.0")
+-- Found PkgConfig: /usr/bin/pkg-config (found version "2.5.1")
+-- ATSPI found, enabling ATSPI support
+-- ATSPI include dirs: /usr/include/at-spi-2.0;/usr/include/dbus-1.0;/usr/lib/dbus-1.0/include;/usr/include;/usr/include/glib-2.0;/usr/lib
+/glib-2.0/include;/usr/include/libmount;/usr/include/blkid;/usr/include/sysprof-6                                                         -- Tesseract not found via pkg-config, trying find_package...
+-- Tesseract not found, trying to find manually...
+-- Found Tesseract manually: /usr/lib/libtesseract.so
+-- Found Leptonica via pkg-config or find_package
+-- Leptonica include dirs: /usr/include/leptonica
+-- Leptonica libraries: leptonica
+-- OCR functionality enabled
+CMake Warning (dev) at /usr/lib/cmake/pybind11/FindPythonLibsNew.cmake:101 (message):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning, or
+  preferably upgrade to using FindPython, either by calling it explicitly
+  before pybind11, or by setting PYBIND11_FINDPYTHON ON before pybind11.
+Call Stack (most recent call first):
+  /usr/lib/cmake/pybind11/pybind11Tools.cmake:44 (find_package)
+  /usr/lib/cmake/pybind11/pybind11Common.cmake:226 (include)
+  /usr/lib/cmake/pybind11/pybind11Config.cmake:257 (include)
+  CMakeLists.txt:131 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Found PythonInterp: /home/neogh/wechat_copilot/.venv/bin/python (found suitable version "3.11.14", minimum required is "3.8")
+-- Found PythonLibs: /usr/lib/libpython3.11.so
+-- Performing Test HAS_FLTO_AUTO
+-- Performing Test HAS_FLTO_AUTO - Success
+-- Found pybind11: /usr/include (found version "3.0.1")
+-- OpenCV version: 4.13.0
+-- Tesseract version: 
+-- pybind11 version: 3.0.1
+-- Build type: Release
+-- OCR functionality: TRUE
+-- Configuring done (1.5s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/neogh/wechat_copilot/cpp_rpa/build
+编译项目...
+/usr/bin/cmake -S/home/neogh/wechat_copilot/cpp_rpa -B/home/neogh/wechat_copilot/cpp_rpa/build --check-build-system CMakeFiles/Makefile.cm
+ake 0                                                                                                                                     /usr/bin/cmake -E cmake_progress_start /home/neogh/wechat_copilot/cpp_rpa/build/CMakeFiles /home/neogh/wechat_copilot/cpp_rpa/build//CMake
+Files/progress.marks                                                                                                                      make  -f CMakeFiles/Makefile2 all
+make[1]: 进入目录“/home/neogh/wechat_copilot/cpp_rpa/build”
+make  -f CMakeFiles/wechat_rpa_core.dir/build.make CMakeFiles/wechat_rpa_core.dir/depend
+make[2]: 进入目录“/home/neogh/wechat_copilot/cpp_rpa/build”
+cd /home/neogh/wechat_copilot/cpp_rpa/build && /usr/bin/cmake -E cmake_depends "Unix Makefiles" /home/neogh/wechat_copilot/cpp_rpa /home/n
+eogh/wechat_copilot/cpp_rpa /home/neogh/wechat_copilot/cpp_rpa/build /home/neogh/wechat_copilot/cpp_rpa/build /home/neogh/wechat_copilot/cpp_rpa/build/CMakeFiles/wechat_rpa_core.dir/DependInfo.cmake "--color=" wechat_rpa_core                                                   make[2]: 离开目录“/home/neogh/wechat_copilot/cpp_rpa/build”
+make  -f CMakeFiles/wechat_rpa_core.dir/build.make CMakeFiles/wechat_rpa_core.dir/build
+make[2]: 进入目录“/home/neogh/wechat_copilot/cpp_rpa/build”
+[ 10%] Building CXX object CMakeFiles/wechat_rpa_core.dir/src/atspi_engine.cpp.o
+/usr/bin/c++ -DENABLE_OCR -DHAVE_ATSPI -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/glib-2
+.0 -I/usr/lib/glib-2.0/include -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/sysprof-6 -I/home/neogh/wechat_copilot/cpp_rpa/include -isystem /usr/include/opencv4 -O3 -DNDEBUG -std=gnu++17 -fPIC -MD -MT CMakeFiles/wechat_rpa_core.dir/src/atspi_engine.cpp.o -MF CMakeFiles/wechat_rpa_core.dir/src/atspi_engine.cpp.o.d -o CMakeFiles/wechat_rpa_core.dir/src/atspi_engine.cpp.o -c /home/neogh/wechat_copilot/cpp_rpa/src/atspi_engine.cpp                                                                                                           [ 20%] Building CXX object CMakeFiles/wechat_rpa_core.dir/src/humanization_engine.cpp.o
+/usr/bin/c++ -DENABLE_OCR -DHAVE_ATSPI -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/glib-2
+.0 -I/usr/lib/glib-2.0/include -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/sysprof-6 -I/home/neogh/wechat_copilot/cpp_rpa/include -isystem /usr/include/opencv4 -O3 -DNDEBUG -std=gnu++17 -fPIC -MD -MT CMakeFiles/wechat_rpa_core.dir/src/humanization_engine.cpp.o -MF CMakeFiles/wechat_rpa_core.dir/src/humanization_engine.cpp.o.d -o CMakeFiles/wechat_rpa_core.dir/src/humanization_engine.cpp.o -c /home/neogh/wechat_copilot/cpp_rpa/src/humanization_engine.cpp                                                                               [ 30%] Building CXX object CMakeFiles/wechat_rpa_core.dir/src/humanization_engine_clean.cpp.o
+/usr/bin/c++ -DENABLE_OCR -DHAVE_ATSPI -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/glib-2
+.0 -I/usr/lib/glib-2.0/include -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/sysprof-6 -I/home/neogh/wechat_copilot/cpp_rpa/include -isystem /usr/include/opencv4 -O3 -DNDEBUG -std=gnu++17 -fPIC -MD -MT CMakeFiles/wechat_rpa_core.dir/src/humanization_engine_clean.cpp.o -MF CMakeFiles/wechat_rpa_core.dir/src/humanization_engine_clean.cpp.o.d -o CMakeFiles/wechat_rpa_core.dir/src/humanization_engine_clean.cpp.o -c /home/neogh/wechat_copilot/cpp_rpa/src/humanization_engine_clean.cpp                                                       [ 40%] Building CXX object CMakeFiles/wechat_rpa_core.dir/src/image_processor.cpp.o
+/usr/bin/c++ -DENABLE_OCR -DHAVE_ATSPI -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -I/usr/include/glib-2
+.0 -I/usr/lib/glib-2.0/include -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/sysprof-6 -I/home/neogh/wechat_copilot/cpp_rpa/include -isystem /usr/include/opencv4 -O3 -DNDEBUG -std=gnu++17 -fPIC -MD -MT CMakeFiles/wechat_rpa_core.dir/src/image_processor.cpp.o -MF CMakeFiles/wechat_rpa_core.dir/src/image_processor.cpp.o.d -o CMakeFiles/wechat_rpa_core.dir/src/image_processor.cpp.o -c /home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp                                                                                               /home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:108:1: 错误：expected declaration before ‘}’ token
+  108 | }
+      | ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:110:9: 错误：‘ImageProcessor’未声明
+  110 | cv::Mat ImageProcessor::enhance_image(const cv::Mat& image) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:133:9: 错误：‘ImageProcessor’未声明
+  133 | cv::Mat ImageProcessor::to_gray(const cv::Mat& image) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:143:9: 错误：‘ImageProcessor’未声明
+  143 | cv::Mat ImageProcessor::binarize(const cv::Mat& image, int threshold) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:150:9: 错误：‘ImageProcessor’未声明
+  150 | cv::Mat ImageProcessor::detect_edges(const cv::Mat& image, int low_threshold, int high_threshold) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:157:9: 错误：‘ImageProcessor’未声明
+  157 | cv::Mat ImageProcessor::resize_image(const cv::Mat& image, int width, int height) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:163:9: 错误：‘ImageProcessor’未声明
+  163 | cv::Mat ImageProcessor::resize_image(const cv::Mat& image, double scale) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:169:6: 错误：‘ImageProcessor’未声明
+  169 | bool ImageProcessor::save_image(const cv::Mat& image, const std::string& path) {
+      |      ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘bool save_image(const cv::Mat&, const std::string&)’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:173:26: 错误：‘screenshot_quality_’在此作用域中尚未声明
+  173 |         params.push_back(screenshot_quality_);
+      |                          ^~~~~~~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:176:30: 错误：‘screenshot_quality_’在此作用域中尚未声明
+  176 |         params.push_back(9 - screenshot_quality_ / 10); // 0-9, 9 is best compression
+      |                              ^~~~~~~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: 在全局域：
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:182:9: 错误：‘ImageProcessor’未声明
+  182 | cv::Mat ImageProcessor::load_image(const std::string& path) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘cv::Mat load_image(const std::string&)’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:185:28: 错误：‘ErrorCode’未声明
+  185 |         throw RPAException(ErrorCode::SCREENSHOT_FAILED, "无法加载图像文件: " + path);
+      |                            ^~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:185:15: 错误：‘RPAException’ was not declared in this scope; did you mean ‘wech
+at_rpa::RPAException’?                                                                                                                      185 |         throw RPAException(ErrorCode::SCREENSHOT_FAILED, "无法加载图像文件: " + path);
+      |               ^~~~~~~~~~~~
+      |               wechat_rpa::RPAException
+包含于文件 /home/neogh/wechat_copilot/cpp_rpa/include/image_processor.h:4,
+        于 /home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:1:
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:118:7: 附注：‘wechat_rpa::RPAException’在此声明
+  118 | class RPAException : public std::runtime_error {
+      |       ^~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: 在全局域：
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:190:6: 错误：‘ImageProcessor’未声明
+  190 | void ImageProcessor::show_image(const cv::Mat& image, const std::string& window_name, int wait_ms) {
+      |      ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:201:6: 错误：‘ImageProcessor’未声明
+  201 | void ImageProcessor::set_screenshot_quality(int quality) {
+      |      ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘void set_screenshot_quality(int)’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:203:9: 错误：‘screenshot_quality_’ was not declared in this scope; did you mean
+ ‘set_screenshot_quality’?                                                                                                                  203 |         screenshot_quality_ = quality;
+      |         ^~~~~~~~~~~~~~~~~~~
+      |         set_screenshot_quality
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: 在全局域：
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:207:5: 错误：‘ImageProcessor’未声明
+  207 | int ImageProcessor::get_screenshot_quality() const {
+      |     ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:207:46: 错误：非成员函数‘int get_screenshot_quality()’不能拥有 cv 限定符
+  207 | int ImageProcessor::get_screenshot_quality() const {
+      |                                              ^~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘int get_screenshot_quality()’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:208:12: 错误：‘screenshot_quality_’ was not declared in this scope; did you mea
+n ‘set_screenshot_quality’?                                                                                                                 208 |     return screenshot_quality_;
+      |            ^~~~~~~~~~~~~~~~~~~
+      |            set_screenshot_quality
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: 在全局域：
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:211:13: 错误：‘Region’ was not declared in this scope; did you mean ‘wechat_rpa
+::Region’?                                                                                                                                  211 | std::vector<Region> ImageProcessor::find_buttons(const cv::Mat& image) {
+      |             ^~~~~~
+      |             wechat_rpa::Region
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:41:8: 附注：‘wechat_rpa::Region’在此声明
+   41 | struct Region {
+      |        ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:211:19: 错误：模板第 1 个参数无效
+  211 | std::vector<Region> ImageProcessor::find_buttons(const cv::Mat& image) {
+      |                   ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:211:19: 错误：模板第 2 个参数无效
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:211:21: 错误：‘ImageProcessor’未声明
+  211 | std::vector<Region> ImageProcessor::find_buttons(const cv::Mat& image) {
+      |                     ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘int find_buttons(const cv::Mat&)’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:212:17: 错误：‘Region’ was not declared in this scope; did you mean ‘wechat_rpa
+::Region’?                                                                                                                                  212 |     std::vector<Region> buttons;
+      |                 ^~~~~~
+      |                 wechat_rpa::Region
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:41:8: 附注：‘wechat_rpa::Region’在此声明
+   41 | struct Region {
+      |        ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:212:23: 错误：模板第 1 个参数无效
+  212 |     std::vector<Region> buttons;
+      |                       ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:212:23: 错误：模板第 2 个参数无效
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:240:23: 错误：expected ‘;’ before ‘region’
+  240 |                 Region region;
+      |                       ^~~~~~~
+      |                       ;
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:241:17: 错误：‘region’在此作用域中尚未声明
+  241 |                 region.x = rect.x;
+      |                 ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:245:25: 错误：对成员‘push_back’的请求出现在‘buttons’中，而后者具有非类类型‘int’
+  245 |                 buttons.push_back(region);
+      |                         ^~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: 在全局域：
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:253:13: 错误：‘Region’ was not declared in this scope; did you mean ‘wechat_rpa
+::Region’?                                                                                                                                  253 | std::vector<Region> ImageProcessor::find_input_boxes(const cv::Mat& image) {
+      |             ^~~~~~
+      |             wechat_rpa::Region
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:41:8: 附注：‘wechat_rpa::Region’在此声明
+   41 | struct Region {
+      |        ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:253:19: 错误：模板第 1 个参数无效
+  253 | std::vector<Region> ImageProcessor::find_input_boxes(const cv::Mat& image) {
+      |                   ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:253:19: 错误：模板第 2 个参数无效
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:253:21: 错误：‘ImageProcessor’未声明
+  253 | std::vector<Region> ImageProcessor::find_input_boxes(const cv::Mat& image) {
+      |                     ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘int find_input_boxes(const cv::Mat&)’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:254:17: 错误：‘Region’ was not declared in this scope; did you mean ‘wechat_rpa
+::Region’?                                                                                                                                  254 |     std::vector<Region> input_boxes;
+      |                 ^~~~~~
+      |                 wechat_rpa::Region
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:41:8: 附注：‘wechat_rpa::Region’在此声明
+   41 | struct Region {
+      |        ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:254:23: 错误：模板第 1 个参数无效
+  254 |     std::vector<Region> input_boxes;
+      |                       ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:254:23: 错误：模板第 2 个参数无效
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:275:19: 错误：expected ‘;’ before ‘region’
+  275 |             Region region;
+      |                   ^~~~~~~
+      |                   ;
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:276:13: 错误：‘region’在此作用域中尚未声明
+  276 |             region.x = rect.x;
+      |             ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:280:25: 错误：对成员‘push_back’的请求出现在‘input_boxes’中，而后者具有非类类型‘
+int’                                                                                                                                        280 |             input_boxes.push_back(region);
+      |                         ^~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: 在全局域：
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:287:13: 错误：‘Region’ was not declared in this scope; did you mean ‘wechat_rpa
+::Region’?                                                                                                                                  287 | std::vector<Region> ImageProcessor::find_contact_items(const cv::Mat& image) {
+      |             ^~~~~~
+      |             wechat_rpa::Region
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:41:8: 附注：‘wechat_rpa::Region’在此声明
+   41 | struct Region {
+      |        ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:287:19: 错误：模板第 1 个参数无效
+  287 | std::vector<Region> ImageProcessor::find_contact_items(const cv::Mat& image) {
+      |                   ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:287:19: 错误：模板第 2 个参数无效
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:287:21: 错误：‘ImageProcessor’未声明
+  287 | std::vector<Region> ImageProcessor::find_contact_items(const cv::Mat& image) {
+      |                     ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘int find_contact_items(const cv::Mat&)’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:288:17: 错误：‘Region’ was not declared in this scope; did you mean ‘wechat_rpa
+::Region’?                                                                                                                                  288 |     std::vector<Region> contact_items;
+      |                 ^~~~~~
+      |                 wechat_rpa::Region
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:41:8: 附注：‘wechat_rpa::Region’在此声明
+   41 | struct Region {
+      |        ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:288:23: 错误：模板第 1 个参数无效
+  288 |     std::vector<Region> contact_items;
+      |                       ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:288:23: 错误：模板第 2 个参数无效
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:309:19: 错误：expected ‘;’ before ‘region’
+  309 |             Region region;
+      |                   ^~~~~~~
+      |                   ;
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:310:13: 错误：‘region’在此作用域中尚未声明
+  310 |             region.x = rect.x;
+      |             ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:314:27: 错误：对成员‘push_back’的请求出现在‘contact_items’中，而后者具有非类类
+型‘int’                                                                                                                                     314 |             contact_items.push_back(region);
+      |                           ^~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: 在全局域：
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:321:9: 错误：‘ImageProcessor’未声明
+  321 | cv::Mat ImageProcessor::detect_hover_changes(const cv::Mat& base_image, const cv::Mat& hover_image) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:350:13: 错误：‘Region’ was not declared in this scope; did you mean ‘wechat_rpa
+::Region’?                                                                                                                                  350 | std::vector<Region> ImageProcessor::find_interactive_elements(const cv::Mat& base_image, const cv::Mat& hover_image) {
+      |             ^~~~~~
+      |             wechat_rpa::Region
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:41:8: 附注：‘wechat_rpa::Region’在此声明
+   41 | struct Region {
+      |        ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:350:19: 错误：模板第 1 个参数无效
+  350 | std::vector<Region> ImageProcessor::find_interactive_elements(const cv::Mat& base_image, const cv::Mat& hover_image) {
+      |                   ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:350:19: 错误：模板第 2 个参数无效
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:350:21: 错误：‘ImageProcessor’未声明
+  350 | std::vector<Region> ImageProcessor::find_interactive_elements(const cv::Mat& base_image, const cv::Mat& hover_image) {
+      |                     ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘int find_interactive_elements(const cv::Mat&, const cv::Mat&)’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:351:17: 错误：‘Region’ was not declared in this scope; did you mean ‘wechat_rpa
+::Region’?                                                                                                                                  351 |     std::vector<Region> elements;
+      |                 ^~~~~~
+      |                 wechat_rpa::Region
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:41:8: 附注：‘wechat_rpa::Region’在此声明
+   41 | struct Region {
+      |        ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:351:23: 错误：模板第 1 个参数无效
+  351 |     std::vector<Region> elements;
+      |                       ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:351:23: 错误：模板第 2 个参数无效
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:371:19: 错误：expected ‘;’ before ‘region’
+  371 |             Region region;
+      |                   ^~~~~~~
+      |                   ;
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:372:13: 错误：‘region’在此作用域中尚未声明
+  372 |             region.x = rect.x;
+      |             ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:376:22: 错误：对成员‘push_back’的请求出现在‘elements’中，而后者具有非类类型‘int
+’                                                                                                                                           376 |             elements.push_back(region);
+      |                      ^~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: 在全局域：
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:383:9: 错误：‘ImageProcessor’未声明
+  383 | cv::Mat ImageProcessor::capture_absolute_region(const Region& region) {
+      |         ^~~~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:383:55: 错误：‘Region’不是一个类型名
+  383 | cv::Mat ImageProcessor::capture_absolute_region(const Region& region) {
+      |                                                       ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp: In function ‘cv::Mat capture_absolute_region(const int&)’:
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:385:58: 错误：对成员‘x’的请求出现在‘region’中，而后者具有非类类型‘const int’
+  385 |     std::string cmd = "maim -x " + std::to_string(region.x) + " -y " + std::to_string(region.y) +
+      |                                                          ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:385:94: 错误：对成员‘y’的请求出现在‘region’中，而后者具有非类类型‘const int’
+  385 |     std::string cmd = "maim -x " + std::to_string(region.x) + " -y " + std::to_string(region.y) +
+      |                                                                                              ^
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:386:53: 错误：对成员‘width’的请求出现在‘region’中，而后者具有非类类型‘const int
+’                                                                                                                                           386 |                      " -w " + std::to_string(region.width) + " -h " + std::to_string(region.height) +
+      |                                                     ^~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:386:93: 错误：对成员‘height’的请求出现在‘region’中，而后者具有非类类型‘const in
+t’                                                                                                                                          386 |                      " -w " + std::to_string(region.width) + " -h " + std::to_string(region.height) +
+      |                                                                                             ^~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:392:28: 错误：‘ErrorCode’未声明
+  392 |         throw RPAException(ErrorCode::SCREENSHOT_FAILED, "截图失败: " + cmd);
+      |                            ^~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:392:15: 错误：‘RPAException’ was not declared in this scope; did you mean ‘wech
+at_rpa::RPAException’?                                                                                                                      392 |         throw RPAException(ErrorCode::SCREENSHOT_FAILED, "截图失败: " + cmd);
+      |               ^~~~~~~~~~~~
+      |               wechat_rpa::RPAException
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:118:7: 附注：‘wechat_rpa::RPAException’在此声明
+  118 | class RPAException : public std::runtime_error {
+      |       ^~~~~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:403:28: 错误：‘ErrorCode’未声明
+  403 |         throw RPAException(ErrorCode::SCREENSHOT_FAILED, "读取截图失败");
+      |                            ^~~~~~~~~
+/home/neogh/wechat_copilot/cpp_rpa/src/image_processor.cpp:403:15: 错误：‘RPAException’ was not declared in this scope; did you mean ‘wech
+at_rpa::RPAException’?                                                                                                                      403 |         throw RPAException(ErrorCode::SCREENSHOT_FAILED, "读取截图失败");
+      |               ^~~~~~~~~~~~
+      |               wechat_rpa::RPAException
+/home/neogh/wechat_copilot/cpp_rpa/include/common.h:118:7: 附注：‘wechat_rpa::RPAException’在此声明
+  118 | class RPAException : public std::runtime_error {
+      |       ^~~~~~~~~~~~
+make[2]: *** [CMakeFiles/wechat_rpa_core.dir/build.make:124：CMakeFiles/wechat_rpa_core.dir/src/image_processor.cpp.o] 错误 1
+make[2]: 离开目录“/home/neogh/wechat_copilot/cpp_rpa/build”
+make[1]: *** [CMakeFiles/Makefile2:93：CMakeFiles/wechat_rpa_core.dir/all] 错误 2
+make[1]: 离开目录“/home/neogh/wechat_copilot/cpp_rpa/build”
+make: *** [Makefile:139：all] 错误 2

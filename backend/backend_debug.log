@@ -1,0 +1,3 @@
+nohup: 忽略输入
+INFO:     Will watch for changes in these directories: ['/home/neogh/wechat_copilot/backend']
+ERROR:    [Errno 98] Address already in use

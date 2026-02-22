@@ -1,0 +1,58 @@
+{
+  "10485764": {
+    "name": "Qt Selection Owner for wechat",
+    "class": "WM_CLASS:  not found.",
+    "type": "_NET_WM_WINDOW_TYPE:  not found.",
+    "state": "_NET_WM_STATE:  not found.",
+    "geometry": "Window 10485764\n  Position: 0,0 (screen: 0)\n  Geometry: 3x3",
+    "pid": "_NET_WM_PID:  not found."
+  },
+  "41943041": {
+    "name": "WeChatAppEx",
+    "class": "WM_CLASS(STRING) = \"WeChatAppEx\", \"WeChatAppEx\"",
+    "type": "_NET_WM_WINDOW_TYPE:  not found.",
+    "state": "_NET_WM_STATE:  not found.",
+    "geometry": "Window 41943041\n  Position: 10,10 (screen: 0)\n  Geometry: 10x10",
+    "pid": "_NET_WM_PID(CARDINAL) = 31123"
+  },
+  "41943043": {
+    "name": "WeChatAppEx",
+    "class": "WM_CLASS(STRING) = \"WeChatAppEx\", \"WeChatAppEx\"",
+    "type": "_NET_WM_WINDOW_TYPE(ATOM) = _NET_WM_WINDOW_TYPE_NORMAL",
+    "state": "_NET_WM_STATE:  not found.",
+    "geometry": "Window 41943043\n  Position: 0,0 (screen: 0)\n  Geometry: 200x200",
+    "pid": "_NET_WM_PID(CARDINAL) = 31123"
+  },
+  "10485768": {
+    "name": "wechat",
+    "class": "WM_CLASS:  not found.",
+    "type": "_NET_WM_WINDOW_TYPE:  not found.",
+    "state": "_NET_WM_STATE:  not found.",
+    "geometry": "Window 10485768\n  Position: 0,0 (screen: 0)\n  Geometry: 1x1",
+    "pid": "_NET_WM_PID:  not found."
+  },
+  "27262980": {
+    "name": "微信",
+    "class": "WM_CLASS:  not found.",
+    "type": "_NET_WM_WINDOW_TYPE(ATOM) = _NET_WM_WINDOW_TYPE_NORMAL",
+    "state": "_NET_WM_STATE:  not found.",
+    "geometry": "Window 27262980\n  Position: 419,57 (screen: 0)\n  Geometry: 1081x967",
+    "pid": "_NET_WM_PID(CARDINAL) = 31123"
+  },
+  "10485776": {
+    "name": "微信",
+    "class": "WM_CLASS(STRING) = \"wechat\", \"wechat\"",
+    "type": "_NET_WM_WINDOW_TYPE(ATOM) = _KDE_NET_WM_WINDOW_TYPE_OVERRIDE, _NET_WM_WINDOW_TYPE_NORMAL",
+    "state": "_NET_WM_STATE:  not found.",
+    "geometry": "Window 10485776\n  Position: 343,72 (screen: 0)\n  Geometry: 1143x828",
+    "pid": "_NET_WM_PID(CARDINAL) = 31062"
+  },
+  "39845892": {
+    "name": "window_manager.cpp - wechat_copilot - Visual Studio Code",
+    "class": "WM_CLASS(STRING) = \"code\", \"Code\"",
+    "type": "_NET_WM_WINDOW_TYPE(ATOM) = _NET_WM_WINDOW_TYPE_NORMAL",
+    "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ",
+    "geometry": "Window 39845892\n  Position: 60,0 (screen: 0)\n  Geometry: 1860x1020",
+    "pid": "_NET_WM_PID(CARDINAL) = 23782"
+  }
+}

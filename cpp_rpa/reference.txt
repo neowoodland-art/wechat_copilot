@@ -1,0 +1,31 @@
+pyatspi (Linux 的辅助功能 API)。
+目前 GitHub 上有一个基于 uiautomation 且支持 4.0+ 版本的开源项目：LAVARONG/wechat-automation-api，它已经帮你封装好了 Flask 接口，
+
+过 pyautogui 发送底层的鼠标/键盘指令
+方案三：视觉 AI 驱动方案（硬核、高安全）
+如果你要做的是“绝对不封号”的智能客服，视觉识别是最终手段。
+• 核心框架： PaddleOCR + YOLOv8。
+• 流程：
+1. 截图： 毫秒级截取微信窗口图像。
+2. 识别： YOLO 识别“头像”、“对话框”、“输入框”的位置；OCR 识别文字内容。
+3. 动作： 通过 pyautogui 发送底层的鼠标/键盘指令。
+• 优点： 微信完全无法感知你的存在，因为它运行在完全正常的系统环境下。
+---
+方案二：Linux 环境下的“容器化”识别
+由于微信 Linux 版（4.0 以后）逐渐趋向统一架构（多基于 Qt 或渲染引擎），在 Linux 下进行控件识别有天然的隔离优势。
+• 技术栈： Docker + Wechat-Beta (Linux) + pyatspi (Linux 的辅助功能 API)。
+• 优势： 你可以在 headless（无头）服务器上通过 Xvfb 虚拟桌面运行微信。
+• 实现细节：
+• 利用 dogtail 或 at-spi2 库。Linux 下的控件暴露非常直接，可以通过路径解析（如 /Application/WeChat/Window/List/...）获取内容。
+• 注入避坑： Linux 系统没有 Windows 那么严苛的 DLL 注入检测，你可以更方便地通过环境变量挂载 LD_PRELOAD 来观察 API 调用，但仅限本地调试，生产环境建议维持 UI 识别。
+• 
+2. 详细技术方案建议
+方案一：基于 Windows UI Automation 的“非注入”模式
+这是目前最推荐的商业级基础方案。微信 4.0+ 版本的 Windows 客户端依然保留了对操作系统辅助功能的兼容。
+• 核心库： 使用 Python 的 uiautomation 库。
+• 识别原理： 微信的界面大多是由 DUI (DirectUI) 或 CefSharp 渲染的，UI Automation 能够读取其控件树（Control Tree），直接获取聊天记录、好友列表的 Name 或 Value 属性。
+• 实现细节：
+1. 句柄定位： 通过 FindWindow 获取微信主窗口句柄。
+2. 控件定位： 递归搜索 ClassName="WeChatMainWndForPC" 下的子控件。
+3. 防检测策略： 绝对不要使用 SendMessage 这种系统调用。模拟点击时，建议随机化点击坐标偏移，并加入 random.sleep() 模拟人工输入速度。
+4. 、

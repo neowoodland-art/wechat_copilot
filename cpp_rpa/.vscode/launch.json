@@ -1,0 +1,38 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Python RPA Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/basic_usage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/build"
+            },
+            "stopOnEntry": false,
+            "justMyCode": true
+        },
+        {
+            "name": "Debug Python Window Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/debug_window.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "justMyCode": true
+        },
+        {
+            "name": "Debug Python WeChat Analysis",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/analyze_wechat_windows.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "justMyCode": true
+        }
+    ]
+}

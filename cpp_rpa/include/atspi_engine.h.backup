@@ -1,0 +1,285 @@
+#ifndef WECHAT_RPA_ATSPI_ENGINE_H
+#define WECHAT_RPA_ATSPI_ENGINE_H
+
+// 条件编译ATSPI支持
+#ifdef HAVE_ATSPI
+#include <atspi/atspi.h>
+#else
+// 提供空定义以避免编译错误
+typedef void* AtspiAccessible;
+typedef struct {
+    int x, y;
+} AtspiPoint;
+typedef struct {
+    int x, y, width, height;
+} AtspiRect;
+typedef void* AtspiComponent;
+#endif
+
+#include <vector>
+#include <string>
+#include "common.h"
+
+namespace wechat_rpa {
+
+/**
+ * ATSPI引擎 - Linux辅助功能API
+ * 用于直接访问UI控件树，不依赖图像识别
+ */
+class ATSPIEngine {
+public:
+    ATSPIEngine();
+    ~ATSPIEngine();
+    
+    /**
+     * 初始化ATSPI引擎
+     * @return 是否初始化成功
+     */
+    bool initialize();
+    
+    /**
+     * 获取微信应用
+     * @return 应用指针
+     */
+    AtspiAccessible* get_wechat_application();
+    
+    /**
+     * 获取所有控件
+     * @param root 根节点
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> get_all_controls(AtspiAccessible* root);
+    
+    /**
+     * 查找特定类型的控件
+     * @param root 根节点
+     * @param role 控件角色
+     * @param name 控件名称
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> find_controls_by_role(AtspiAccessible* root, const std::string& role);
+    
+    /**
+     * 查找特定名称的控件
+     * @param root 根节点
+     * @param name 控件名称
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> find_controls_by_name(AtspiAccessible* root, const std::string& name);
+    
+    /**
+     * 点击控件
+     * @param control 控件指针
+     * @return 是否成功
+     */
+    bool click_control(AtspiAccessible* control);
+    
+    /**
+     * 输入文本
+     * @param control 控件指针
+     * @param text 文本内容
+     * @return 是否成功
+     */
+    bool input_text(AtspiAccessible* control, const std::string& text);
+    
+    /**
+     * 获取控件位置
+     * @param control 控件指针
+     * @return 控件区域
+     */
+    Region get_control_region(AtspiAccessible* control);
+    
+    /**
+     * 获取控件文本
+     * @param control 控件指针
+     * @return 文本内容
+     */
+    std::string get_control_text(AtspiAccessible* control);
+    
+private:
+    bool initialized_;
+};
+
+} // namespace wechat_rpa
+
+#endif // WECHAT_RPA_ATSPI_ENGINE_H#ifndef WECHAT_RPA_ATSPI_ENGINE_H
+#define WECHAT_RPA_ATSPI_ENGINE_H
+
+#include <atspi/atspi.h>
+#include <vector>
+#include <string>
+#include "common.h"
+
+namespace wechat_rpa {
+
+/**
+ * ATSPI引擎 - Linux辅助功能API
+ * 用于直接访问UI控件树，不依赖图像识别
+ */
+class ATSPIEngine {
+public:
+    ATSPIEngine();
+    ~ATSPIEngine();
+    
+    /**
+     * 初始化ATSPI引擎
+     * @return 是否初始化成功
+     */
+    bool initialize();
+    
+    /**
+     * 获取微信应用
+     * @return 应用指针
+     */
+    AtspiAccessible* get_wechat_application();
+    
+    /**
+     * 获取所有控件
+     * @param root 根节点
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> get_all_controls(AtspiAccessible* root);
+    
+    /**
+     * 查找特定类型的控件
+     * @param root 根节点
+     * @param role 控件角色
+     * @param name 控件名称
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> find_controls_by_role(AtspiAccessible* root, const std::string& role);
+    
+    /**
+     * 查找特定名称的控件
+     * @param root 根节点
+     * @param name 控件名称
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> find_controls_by_name(AtspiAccessible* root, const std::string& name);
+    
+    /**
+     * 点击控件
+     * @param control 控件指针
+     * @return 是否成功
+     */
+    bool click_control(AtspiAccessible* control);
+    
+    /**
+     * 输入文本
+     * @param control 控件指针
+     * @param text 文本内容
+     * @return 是否成功
+     */
+    bool input_text(AtspiAccessible* control, const std::string& text);
+    
+    /**
+     * 获取控件位置
+     * @param control 控件指针
+     * @return 控件区域
+     */
+    Region get_control_region(AtspiAccessible* control);
+    
+    /**
+     * 获取控件文本
+     * @param control 控件指针
+     * @return 文本内容
+     */
+    std::string get_control_text(AtspiAccessible* control);
+    
+private:
+    bool initialized_;
+};
+
+} // namespace wechat_rpa
+
+#endif // WECHAT_RPA_ATSPI_ENGINE_H#ifndef WECHAT_RPA_ATSPI_ENGINE_H
+#define WECHAT_RPA_ATSPI_ENGINE_H
+
+#include <atspi/atspi.h>
+#include <vector>
+#include <string>
+#include "common.h"
+
+namespace wechat_rpa {
+
+/**
+ * ATSPI引擎 - Linux辅助功能API
+ * 用于直接访问UI控件树，不依赖图像识别
+ */
+class ATSPIEngine {
+public:
+    ATSPIEngine();
+    ~ATSPIEngine();
+    
+    /**
+     * 初始化ATSPI引擎
+     * @return 是否初始化成功
+     */
+    bool initialize();
+    
+    /**
+     * 获取微信应用
+     * @return 应用指针
+     */
+    AtspiAccessible* get_wechat_application();
+    
+    /**
+     * 获取所有控件
+     * @param root 根节点
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> get_all_controls(AtspiAccessible* root);
+    
+    /**
+     * 查找特定类型的控件
+     * @param root 根节点
+     * @param role 控件角色
+     * @param name 控件名称
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> find_controls_by_role(AtspiAccessible* root, const std::string& role);
+    
+    /**
+     * 查找特定名称的控件
+     * @param root 根节点
+     * @param name 控件名称
+     * @return 控件列表
+     */
+    std::vector<AtspiAccessible*> find_controls_by_name(AtspiAccessible* root, const std::string& name);
+    
+    /**
+     * 点击控件
+     * @param control 控件指针
+     * @return 是否成功
+     */
+    bool click_control(AtspiAccessible* control);
+    
+    /**
+     * 输入文本
+     * @param control 控件指针
+     * @param text 文本内容
+     * @return 是否成功
+     */
+    bool input_text(AtspiAccessible* control, const std::string& text);
+    
+    /**
+     * 获取控件位置
+     * @param control 控件指针
+     * @return 控件区域
+     */
+    Region get_control_region(AtspiAccessible* control);
+    
+    /**
+     * 获取控件文本
+     * @param control 控件指针
+     * @return 文本内容
+     */
+    std::string get_control_text(AtspiAccessible* control);
+    
+private:
+    bool initialized_;
+};
+
+} // namespace wechat_rpa
+
+#endif // WECHAT_RPA_ATSPI_ENGINE_H

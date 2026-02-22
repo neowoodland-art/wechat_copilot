@@ -266,6 +266,13 @@
               <option :value="6">仅前6层</option>
             </select>
           </div>
+          <div class="input-row" style="margin-top:8px; align-items:center; gap:12px;">
+            <label style="display:flex; align-items:center; gap:6px; min-width:210px;">
+              <input type="checkbox" v-model="atspiAutoRefreshTree" /> 抓取前刷新辅助树
+            </label>
+            <input v-model.number="atspiRefreshRounds" type="number" min="1" max="8" placeholder="刷新轮次(1-8)" />
+            <input v-model.number="atspiRefreshIntervalMs" type="number" min="0" max="3000" placeholder="轮次间隔ms(0-3000)" />
+          </div>
           <div class="action-grid">
             <button class="btn btn-secondary" @click="fetchATSPIControlTreeSnapshot(false, false)">获取AT-SPI原始快照（无过滤）</button>
             <button class="btn btn-warning" @click="fetchATSPIControlTreeSnapshot(true, false)">激活微信并抓原始快照</button>
@@ -934,6 +941,9 @@ const atspiRoleFilter = ref('')
 const atspiNameFilter = ref('')
 const atspiMaxNodes = ref(2000)
 const atspiMaxDepth = ref(-1)
+const atspiAutoRefreshTree = ref(false)
+const atspiRefreshRounds = ref(1)
+const atspiRefreshIntervalMs = ref(0)
 const atspiSnapshotNodes = ref([])
 const atspiSnapshotSummary = ref('')
 const atspiClickValidationResult = ref('')
@@ -2932,11 +2942,15 @@ const fetchATSPIControlTreeSnapshot = async (autoActivate = false, applyFilters 
     const roleFilter = applyFilters ? atspiRoleFilter.value : ''
     const nameFilter = applyFilters ? atspiNameFilter.value : ''
     const hasNameFilter = !!String(nameFilter || '').trim()
+    const useNoFilterFullMode = !applyFilters
     const params = {
       role_filter: roleFilter,
       name_filter: nameFilter,
-      max_nodes: Number(atspiMaxNodes.value || 5000),
-      max_depth: Number(atspiMaxDepth.value ?? -1),
+      max_nodes: useNoFilterFullMode ? 0 : Number(atspiMaxNodes.value || 5000),
+      max_depth: useNoFilterFullMode ? -1 : Number(atspiMaxDepth.value ?? -1),
+      auto_refresh_tree: useNoFilterFullMode ? false : !!atspiAutoRefreshTree.value,
+      refresh_rounds: useNoFilterFullMode ? 1 : Number(atspiRefreshRounds.value || 1),
+      refresh_interval_ms: useNoFilterFullMode ? 0 : Number(atspiRefreshIntervalMs.value || 0),
       auto_activate: false,
       prefer_tree: true,
       deep_search: true,
@@ -2948,7 +2962,7 @@ const fetchATSPIControlTreeSnapshot = async (autoActivate = false, applyFilters 
 
     let response = null
     let lastError = null
-    for (const endpoint of ['/api/v1/atspi/tree_snapshot', '/api/v1/rpa/atspi/tree_snapshot']) {
+    for (const endpoint of ['/api/v1/rpa/atspi/tree_snapshot', '/api/v1/atspi/tree_snapshot']) {
       try {
         response = await axios.post(endpoint, {}, { params })
         if (response?.data) break
@@ -2962,7 +2976,14 @@ const fetchATSPIControlTreeSnapshot = async (autoActivate = false, applyFilters 
 
     if (response.data.success) {
       atspiSnapshotNodes.value = response.data.nodes || []
-      atspiSnapshotSummary.value = `快照模式: ${applyFilters ? '按过滤条件' : '原始无过滤'}\n返回节点: ${response.data.count}\n原始模式: ${response.data.filters?.raw_mode || '-'}\n树尝试: ${response.data.filters?.tree_attempted ? '是' : '否'} / 树节点: ${response.data.filters?.tree_nodes_count ?? '-'}\n过滤条件: role=${response.data.filters?.role_filter || '-'}, name=${response.data.filters?.name_filter || '-'}\n自动激活: ${response.data.activated ? '是' : '否'}\n导出文件: ${response.data.export_file || '-'}`
+      const refresh = response.data.filters?.tree_refresh || {}
+      const sourceStatus = response.data.filters?.data_source_status || {}
+      const treeSourceNodes = sourceStatus?.tree_snapshot?.nodes ?? '-'
+      const controlSourceNodes = sourceStatus?.control_snapshot?.nodes ?? '-'
+      const managerUiNodes = sourceStatus?.manager_get_ui_elements?.nodes ?? '-'
+      const engineUiNodes = sourceStatus?.engine_get_ui_elements?.nodes ?? '-'
+      const engineTraverseNodes = sourceStatus?.engine_traverse_control_tree?.nodes ?? '-'
+      atspiSnapshotSummary.value = `快照模式: ${applyFilters ? '按过滤条件' : '原始无过滤'}\n返回节点: ${response.data.count}\n原始模式: ${response.data.filters?.raw_mode || '-'}\n树尝试: ${response.data.filters?.tree_attempted ? '是' : '否'} / 树节点: ${response.data.filters?.tree_nodes_count ?? '-'}\n刷新: ${refresh.enabled ? '开启' : '关闭'} / 轮次=${refresh.refresh_rounds ?? '-'} / 最优轮次=${refresh.best_round ?? '-'} / 最优节点=${refresh.best_nodes ?? '-'} / 可定位=${refresh.best_positioned_nodes ?? '-'}\n数据源节点: tree=${treeSourceNodes}, control=${controlSourceNodes}, manager_ui=${managerUiNodes}, engine_ui=${engineUiNodes}, engine_traverse=${engineTraverseNodes}\n过滤条件: role=${response.data.filters?.role_filter || '-'}, name=${response.data.filters?.name_filter || '-'}\n自动激活: ${response.data.activated ? '是' : '否'}\n导出文件: ${response.data.export_file || '-'}`
       showMessage(response.data.message || 'AT-SPI树快照成功', 'success')
     } else {
       atspiSnapshotNodes.value = []

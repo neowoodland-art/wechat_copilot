@@ -19,6 +19,7 @@ typedef void* AtspiComponent;
 
 #include <vector>
 #include <string>
+#include <map>
 #include "common.h"
 
 namespace wechat_rpa {
@@ -130,6 +131,23 @@ public:
      * @return 边界矩形
      */
     AtspiRect get_control_bounds(AtspiAccessible* control);
+
+    /**
+     * 统一AT-SPI树快照抓取接口
+     * @param root 根节点
+     * @param max_nodes 最大节点数
+     * @param max_depth 最大深度（-1表示不限）
+     * @param include_text 是否采集文本
+     * @param deduplicate 是否按基础几何与语义去重
+     * @return 树节点快照
+     */
+    std::vector<std::map<std::string, std::string>> capture_tree_snapshot(
+        AtspiAccessible* root,
+        int max_nodes = 800,
+        int max_depth = -1,
+        bool include_text = true,
+        bool deduplicate = false
+    );
 
 private:
     bool initialized_;

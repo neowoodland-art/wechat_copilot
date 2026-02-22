@@ -23,6 +23,7 @@ import cv2
 
 from db.session import get_session
 from db.models import WechatATSPINode
+from backend.core.atspi_tree_service import ATSPIQueryOptions, collect_best_snapshot
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -400,10 +401,60 @@ def _safe_crop(
     return image[y1:y2, x1:x2]
 
 
+def _fetch_atspi_snapshot_once(manager: Any, max_nodes: int, max_depth: int) -> List[Dict[str, Any]]:
+    def _capture_once() -> List[Dict[str, Any]]:
+        used_tree = False
+        if hasattr(manager, "get_atspi_tree_snapshot"):
+            controls = manager.get_atspi_tree_snapshot(max_nodes, max_depth)
+            used_tree = True
+        elif hasattr(manager, "get_atspi_control_snapshot"):
+            controls = manager.get_atspi_control_snapshot(max_nodes)
+        else:
+            raise HTTPException(status_code=500, detail="当前RPA模块缺少AT-SPI树快照接口")
+
+        if not isinstance(controls, list):
+            raise HTTPException(status_code=500, detail="AT-SPI树快照数据格式错误")
+
+        if used_tree and len(controls) < 10 and hasattr(manager, "get_atspi_control_snapshot"):
+            try:
+                fallback_controls = manager.get_atspi_control_snapshot(max_nodes)
+                if isinstance(fallback_controls, list) and len(fallback_controls) > len(controls):
+                    controls = fallback_controls
+            except Exception as err:
+                logger.warning(f"AT-SPI树快照节点偏少，补抓control_snapshot失败: {err}")
+
+        return controls
+
+    raw_controls = _capture_once()
+
+    if len(raw_controls) < 10 and hasattr(manager, "activate_wechat"):
+        try:
+            if bool(manager.activate_wechat()):
+                time.sleep(0.8)
+                retry_controls = _capture_once()
+                if len(retry_controls) > len(raw_controls):
+                    raw_controls = retry_controls
+        except Exception as err:
+            logger.warning(f"AT-SPI节点偏少时激活重抓失败: {err}")
+
+    return raw_controls
+
+
+def _count_positioned_nodes(raw_controls: List[Dict[str, Any]]) -> int:
+    count = 0
+    for row in raw_controls or []:
+        if int(row.get("width", 0) or 0) > 0 and int(row.get("height", 0) or 0) > 0:
+            count += 1
+    return count
+
+
 class CaptureRequest(BaseModel):
     max_nodes: int = Field(default=1200, ge=1, le=5000)
     max_depth: int = Field(default=-1, ge=-1, le=64)
     auto_activate: bool = False
+    auto_refresh_tree: bool = False
+    refresh_rounds: int = Field(default=1, ge=1, le=8)
+    refresh_interval_ms: int = Field(default=0, ge=0, le=3000)
     page_type: str = ""
     function_type: str = ""
 
@@ -420,6 +471,48 @@ class DeleteRequest(BaseModel):
 
 class ClearRequest(BaseModel):
     confirm: bool = False
+
+
+@router.post("/atspi/tree_snapshot")
+async def atspi_tree_snapshot_alias(
+    role_filter: Optional[str] = Query(default=None),
+    name_filter: Optional[str] = Query(default=None),
+    max_nodes: int = Query(default=5000),
+    auto_activate: bool = Query(default=False),
+    auto_refresh_tree: bool = Query(default=False),
+    refresh_rounds: int = Query(default=1),
+    refresh_interval_ms: int = Query(default=0),
+    deep_search: bool = Query(default=True),
+    include_common_keywords: bool = Query(default=False),
+    extra_terms: Optional[str] = Query(default=None),
+    require_keyword_match: Optional[bool] = Query(default=None),
+    prefer_tree: bool = Query(default=True),
+    max_depth: int = Query(default=-1),
+    export_json: bool = Query(default=False),
+    export_path: Optional[str] = Query(default=None),
+    deduplicate: bool = Query(default=False),
+):
+    """AT-SPI树快照别名路由：兼容 /api/v1/atspi/tree_snapshot 调用。"""
+    from .rpa_compatibility import get_atspi_tree_snapshot
+
+    return await get_atspi_tree_snapshot(
+        role_filter=role_filter,
+        name_filter=name_filter,
+        max_nodes=max_nodes,
+        auto_activate=auto_activate,
+        auto_refresh_tree=auto_refresh_tree,
+        refresh_rounds=refresh_rounds,
+        refresh_interval_ms=refresh_interval_ms,
+        deep_search=deep_search,
+        include_common_keywords=include_common_keywords,
+        extra_terms=extra_terms,
+        require_keyword_match=require_keyword_match,
+        prefer_tree=prefer_tree,
+        max_depth=max_depth,
+        export_json=export_json,
+        export_path=export_path,
+        deduplicate=deduplicate,
+    )
 
 
 @router.post("/atspi/capture")
@@ -439,15 +532,23 @@ async def capture_atspi_tree(payload: CaptureRequest, session: Session = Depends
 
     window_info = _extract_window_info(manager.get_wechat_window())
 
-    if hasattr(manager, "get_atspi_tree_snapshot"):
-        raw_controls = manager.get_atspi_tree_snapshot(payload.max_nodes, payload.max_depth)
-    elif hasattr(manager, "get_atspi_control_snapshot"):
-        raw_controls = manager.get_atspi_control_snapshot(payload.max_nodes)
-    else:
-        raise HTTPException(status_code=500, detail="当前RPA模块缺少AT-SPI树快照接口")
-
-    if not isinstance(raw_controls, list):
-        raise HTTPException(status_code=500, detail="AT-SPI树快照数据格式错误")
+    snapshot_result = collect_best_snapshot(
+        manager=manager,
+        options=ATSPIQueryOptions(
+            max_nodes=payload.max_nodes,
+            auto_activate=False,
+            auto_refresh_tree=payload.auto_refresh_tree,
+            refresh_rounds=payload.refresh_rounds,
+            refresh_interval_ms=payload.refresh_interval_ms,
+            deep_search=True,
+            prefer_tree=True,
+            max_depth=payload.max_depth,
+            deduplicate=False,
+        ),
+    )
+    raw_controls = list(snapshot_result.get("best_controls", []))
+    rounds = int(snapshot_result.get("rounds", 1) or 1)
+    refresh_attempts = list(snapshot_result.get("refresh_attempts", []))
 
     coordinate_diagnostics = _build_coordinate_diagnostics(raw_controls, window_info)
 
@@ -546,6 +647,16 @@ async def capture_atspi_tree(payload: CaptureRequest, session: Session = Depends
         "full_image_path": full_image_path,
         "window_info": window_info,
         "activation_settle_seconds": activation_settle_seconds,
+        "tree_refresh": {
+            "enabled": bool(payload.auto_refresh_tree),
+            "refresh_rounds": rounds,
+            "refresh_interval_ms": payload.refresh_interval_ms,
+            "attempts": refresh_attempts,
+            "best_nodes": len(raw_controls),
+            "best_positioned_nodes": _count_positioned_nodes(raw_controls),
+            "raw_mode": str(snapshot_result.get("best_mode", "")),
+            "data_source_status": snapshot_result.get("source_status", {}),
+        },
         "coordinate_diagnostics": coordinate_diagnostics,
         "message": f"采集完成，共写入 {inserted} 条控件",
     }
@@ -567,6 +678,13 @@ async def list_atspi_nodes(
     x_max: Optional[int] = None,
     y_min: Optional[int] = None,
     y_max: Optional[int] = None,
+    non_empty_access_path: bool = Query(default=False),
+    non_empty_path_numeric_code: bool = Query(default=False),
+    non_empty_depth_code: bool = Query(default=False),
+    non_empty_page_type: bool = Query(default=False),
+    non_empty_role: bool = Query(default=False),
+    non_empty_text: bool = Query(default=False),
+    non_empty_ocr_text: bool = Query(default=False),
     sort_by: str = Query(default="created_at"),
     sort_order: str = Query(default="desc"),
     session: Session = Depends(get_session),
@@ -599,6 +717,23 @@ async def list_atspi_nodes(
         conditions.append(WechatATSPINode.y >= y_min)
     if y_max is not None:
         conditions.append(WechatATSPINode.y <= y_max)
+    if non_empty_access_path:
+        conditions.append(func.length(func.trim(WechatATSPINode.access_path)) > 0)
+    if non_empty_path_numeric_code:
+        conditions.append(func.length(func.trim(WechatATSPINode.path_numeric_code)) > 0)
+    if non_empty_depth_code:
+        conditions.append(func.length(func.trim(WechatATSPINode.depth_code)) > 0)
+    if non_empty_page_type:
+        conditions.append(func.length(func.trim(WechatATSPINode.page_type)) > 0)
+    if non_empty_role:
+        conditions.append(func.length(func.trim(WechatATSPINode.role)) > 0)
+    if non_empty_text:
+        conditions.append(
+            (func.length(func.trim(WechatATSPINode.text)) > 0)
+            | (func.length(func.trim(WechatATSPINode.name)) > 0)
+        )
+    if non_empty_ocr_text:
+        conditions.append(func.length(func.trim(WechatATSPINode.ocr_text)) > 0)
 
     count_stmt = select(func.count()).select_from(WechatATSPINode)
     data_stmt = select(WechatATSPINode)
@@ -719,9 +854,15 @@ async def delete_atspi_nodes(payload: DeleteRequest, session: Session = Depends(
 
 
 @router.post("/atspi/clear")
-async def clear_atspi_nodes(payload: ClearRequest, session: Session = Depends(get_session)):
+@router.post("/rpa/atspi/clear")
+async def clear_atspi_nodes(
+    payload: Optional[ClearRequest] = None,
+    confirm: Optional[bool] = Query(default=None),
+    session: Session = Depends(get_session),
+):
     _ensure_atspi_schema(session)
-    if not payload.confirm:
+    confirmed = bool(confirm) or bool(payload.confirm if payload else False)
+    if not confirmed:
         raise HTTPException(status_code=400, detail="请确认清空操作")
 
     total = int(session.exec(select(func.count()).select_from(WechatATSPINode)).one() or 0)
@@ -731,7 +872,23 @@ async def clear_atspi_nodes(payload: ClearRequest, session: Session = Depends(ge
     session.exec(delete(WechatATSPINode))
     session.commit()
 
-    return {"success": True, "deleted": total}
+    remaining = int(session.exec(select(func.count()).select_from(WechatATSPINode)).one() or 0)
+
+    return {"success": True, "deleted": total, "remaining": remaining}
+
+
+@router.post("/atspi/clear_force")
+@router.post("/rpa/atspi/clear_force")
+async def clear_atspi_nodes_force(session: Session = Depends(get_session)):
+    _ensure_atspi_schema(session)
+    total = int(session.exec(select(func.count()).select_from(WechatATSPINode)).one() or 0)
+    if total <= 0:
+        return {"success": True, "deleted": 0, "remaining": 0}
+
+    session.exec(delete(WechatATSPINode))
+    session.commit()
+    remaining = int(session.exec(select(func.count()).select_from(WechatATSPINode)).one() or 0)
+    return {"success": True, "deleted": total, "remaining": remaining}
 
 
 @router.get("/atspi/export")

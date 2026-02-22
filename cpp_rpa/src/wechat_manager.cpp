@@ -538,38 +538,15 @@ std::vector<std::map<std::string, std::string>> WeChatManager::get_atspi_control
             return snapshot;
         }
 
-        std::vector<AtspiAccessible*> controls = atspi_engine_.get_all_controls(app);
-        int limit = std::max(1, max_nodes);
-
-        for (int i = 0; i < static_cast<int>(controls.size()) && static_cast<int>(snapshot.size()) < limit; ++i) {
-            AtspiAccessible* control = controls[i];
-            if (!control) {
-                continue;
-            }
-
-            std::string name = atspi_engine_.get_control_name(control);
-            std::string role = atspi_engine_.get_control_role(control);
-            std::string text = atspi_engine_.get_control_text(control);
-            Region region = atspi_engine_.get_control_region(control);
-
-            std::map<std::string, std::string> item;
-            item["index"] = std::to_string(i);
-            item["name"] = name;
-            item["role"] = role;
-            item["text"] = text;
-            item["x"] = std::to_string(region.x);
-            item["y"] = std::to_string(region.y);
-            item["width"] = std::to_string(region.width);
-            item["height"] = std::to_string(region.height);
-            snapshot.push_back(item);
-        }
+        snapshot = atspi_engine_.capture_tree_snapshot(
+            app,
+            std::max(1, max_nodes),
+            -1,
+            true,
+            false
+        );
 
 #ifdef HAVE_ATSPI
-        for (auto* control : controls) {
-            if (control) {
-                g_object_unref(control);
-            }
-        }
         g_object_unref(app);
 #endif
 
@@ -591,72 +568,13 @@ std::vector<std::map<std::string, std::string>> WeChatManager::get_atspi_tree_sn
             return snapshot;
         }
 
-        struct StackItem {
-            AtspiAccessible* node;
-            int depth;
-            int parent_index;
-            std::string path;
-        };
-
-        std::vector<StackItem> stack;
-        stack.push_back({app, 0, -1, "Root"});
-
-        while (!stack.empty() && static_cast<int>(snapshot.size()) < limit) {
-            StackItem current = stack.back();
-            stack.pop_back();
-
-            AtspiAccessible* node = current.node;
-            if (!node) {
-                continue;
-            }
-
-            std::string name = atspi_engine_.get_control_name(node);
-            std::string role = atspi_engine_.get_control_role(node);
-            std::string text = atspi_engine_.get_control_text(node);
-            Region region = atspi_engine_.get_control_region(node);
-
-            int current_index = static_cast<int>(snapshot.size());
-            std::map<std::string, std::string> item;
-            item["index"] = std::to_string(current_index);
-            item["name"] = name;
-            item["role"] = role;
-            item["text"] = text;
-            item["x"] = std::to_string(region.x);
-            item["y"] = std::to_string(region.y);
-            item["width"] = std::to_string(region.width);
-            item["height"] = std::to_string(region.height);
-            item["depth"] = std::to_string(current.depth);
-            item["parent_index"] = std::to_string(current.parent_index);
-            item["path"] = current.path;
-            snapshot.push_back(item);
-
-            if (max_depth >= 0 && current.depth >= max_depth) {
-                continue;
-            }
-
-            GError* error = nullptr;
-            gint child_count = atspi_accessible_get_child_count(node, &error);
-            if (error) {
-                g_error_free(error);
-                error = nullptr;
-                continue;
-            }
-
-            for (gint i = child_count - 1; i >= 0; --i) {
-                AtspiAccessible* child = atspi_accessible_get_child_at_index(node, i, &error);
-                if (error) {
-                    g_error_free(error);
-                    error = nullptr;
-                    continue;
-                }
-                if (!child) {
-                    continue;
-                }
-
-                std::string child_path = current.path + " -> Child[" + std::to_string(i) + "]";
-                stack.push_back({child, current.depth + 1, current_index, child_path});
-            }
-        }
+        snapshot = atspi_engine_.capture_tree_snapshot(
+            app,
+            limit,
+            max_depth,
+            true,
+            false
+        );
 
         g_object_unref(app);
         return snapshot;

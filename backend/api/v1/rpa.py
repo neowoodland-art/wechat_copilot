@@ -506,15 +506,20 @@ async def get_ui_elements():
         raise HTTPException(status_code=500, detail=f"获取界面控件信息失败: {str(e)}")
 
 @router.post("/atspi/traverse_control_tree")
-async def traverse_control_tree():
+async def traverse_control_tree(max_nodes: int = 2000, max_depth: int = -1):
     """遍历控件树信息"""
     if not rpa_available:
         raise HTTPException(status_code=500, detail="C++ ATSPI模块不可用")
 
     try:
         engine = get_atspi_engine()
-        tree_info = engine.traverse_control_tree()
-        return {"success": True, "tree_info": tree_info}
+        tree_info = engine.traverse_control_tree(max_nodes, max_depth)
+        return {
+            "success": True,
+            "tree_info": tree_info,
+            "nodes": tree_info,
+            "count": len(tree_info) if isinstance(tree_info, list) else 0,
+        }
     except Exception as e:
         logger.error(f"遍历控件树失败: {e}")
         raise HTTPException(status_code=500, detail=f"遍历控件树失败: {str(e)}")

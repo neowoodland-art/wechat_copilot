@@ -75,6 +75,31 @@ def test_atspi_get_text(manager):
         print(f"⚠️ ATSPI获取控件文本失败: {e}")
         return False
 
+def test_atspi_tree_snapshot(manager):
+    """测试AT-SPI树快照"""
+    print("\n=== 测试AT-SPI树快照 ===")
+
+    try:
+        # 确保窗口激活，避免获取到不完整的辅助树
+        manager.activate_wechat()
+        time.sleep(0.6)
+
+        max_nodes = 20000
+        max_depth = -1
+        snapshot = manager.get_atspi_tree_snapshot(max_nodes, max_depth)
+        total = len(snapshot) if snapshot else 0
+        print(f"✅ AT-SPI树快照节点数: {total} (limit={max_nodes})")
+
+        if total >= max_nodes:
+            print("⚠️ 节点数达到上限，可能被max_nodes截断")
+        elif total < 50:
+            print("⚠️ 节点数偏少，可能未完整展开辅助树")
+
+        return True
+    except Exception as e:
+        print(f"⚠️ AT-SPI树快照失败: {e}")
+        return False
+
 def test_humanized_operations(manager):
     """测试拟人化操作"""
     print("\n=== 测试拟人化操作 ===")
@@ -117,6 +142,9 @@ def main():
     
     # 测试ATSPI获取控件文本
     get_text_ok = test_atspi_get_text(manager)
+
+    # 测试AT-SPI树快照
+    tree_ok = test_atspi_tree_snapshot(manager)
     
     # 测试拟人化操作
     humanized_ok = test_humanized_operations(manager)
@@ -126,6 +154,7 @@ def main():
     print(f"ATSPI点击控件: {'✅' if click_ok else '❌'}")
     print(f"ATSPI输入文本: {'✅' if input_ok else '❌'}")
     print(f"ATSPI获取控件文本: {'✅' if get_text_ok else '❌'}")
+    print(f"AT-SPI树快照: {'✅' if tree_ok else '❌'}")
     print(f"拟人化操作: {'✅' if humanized_ok else '❌'}")
     
     # 评估ATSPI功能

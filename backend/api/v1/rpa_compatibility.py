@@ -17,6 +17,7 @@ from datetime import datetime
 import cv2
 import numpy as np
 import re
+from backend.core.atspi_tree_service import ATSPIQueryOptions, build_snapshot_payload
 
 # 添加编译后的模块路径
 module_paths = [
@@ -4155,6 +4156,9 @@ async def get_atspi_tree_snapshot(
     name_filter: Optional[str] = None,
     max_nodes: int = 5000,
     auto_activate: bool = False,
+    auto_refresh_tree: bool = False,
+    refresh_rounds: int = 1,
+    refresh_interval_ms: int = 0,
     deep_search: bool = True,
     include_common_keywords: bool = False,
     extra_terms: Optional[str] = None,
@@ -4172,238 +4176,28 @@ async def get_atspi_tree_snapshot(
     try:
         manager = get_wechat_manager()
 
-        activated = False
-        activation_settle_seconds = 0.0
-        if auto_activate and hasattr(manager, "activate_wechat"):
-            activated = bool(manager.activate_wechat())
-            if activated:
-                activation_settle_seconds = 2.0
-                _random_delay(2.0, 2.2)
-
-        manager_window_info = {}
-        if hasattr(manager, "get_wechat_window"):
-            try:
-                manager_window_info = _safe_window_info(manager.get_wechat_window())
-            except Exception as err:
-                logger.warning(f"获取微信窗口信息失败: {err}")
-
-        role_kw = (role_filter or "").strip().lower()
-        requested_max_nodes = int(max_nodes)
-        # max_nodes<=0 视为尽可能全量
-        if requested_max_nodes <= 0:
-            requested_max_nodes = 20000
-        limit = max(1, min(requested_max_nodes, 20000))
-        snapshot_limit = limit
-        if deep_search:
-            snapshot_limit = min(20000, max(limit * 4, 800))
-
-        keywords = _build_atspi_search_keywords(
-            name_filter=name_filter,
-            extra_terms=extra_terms,
-            include_common_keywords=include_common_keywords,
-        )
-        keyword_required = require_keyword_match
-        if keyword_required is None:
-            keyword_required = bool(name_filter or extra_terms)
-
-        raw_mode = "control_snapshot"
-        raw_controls: List[Dict[str, Any]] = []
-        tree_attempted = False
-        tree_nodes_count = 0
-        tree_error = ""
-        if prefer_tree and hasattr(manager, "get_atspi_tree_snapshot"):
-            tree_attempted = True
-            try:
-                raw_controls = manager.get_atspi_tree_snapshot(snapshot_limit, int(max_depth))
-                tree_nodes_count = len(raw_controls)
-                raw_mode = "tree_snapshot"
-            except Exception as tree_err:
-                logger.warning(f"AT-SPI树快照失败，回退普通快照: {tree_err}")
-                tree_error = str(tree_err)
-                raw_controls = []
-
-        if not raw_controls and hasattr(manager, "get_atspi_control_snapshot"):
-            raw_controls = manager.get_atspi_control_snapshot(snapshot_limit)
-            raw_mode = "control_snapshot"
-
-        # 无过滤模式下，若树快照节点异常偏少，则自动回退普通快照并合并，避免只拿到顶层少量节点
-        no_filter_mode = (
-            not role_kw
-            and not str(name_filter or "").strip()
-            and not str(extra_terms or "").strip()
-            and not bool(keyword_required)
-            and not bool(deduplicate)
-        )
-        if no_filter_mode and hasattr(manager, "get_atspi_control_snapshot") and len(raw_controls) < 10:
-            try:
-                fallback_controls = manager.get_atspi_control_snapshot(snapshot_limit)
-                if isinstance(fallback_controls, list) and len(fallback_controls) > len(raw_controls):
-                    merged: List[Dict[str, Any]] = []
-                    seen = set()
-                    for row in list(raw_controls) + list(fallback_controls):
-                        key = (
-                            int(row.get("index", -1) or -1),
-                            int(row.get("x", 0) or 0),
-                            int(row.get("y", 0) or 0),
-                            int(row.get("width", 0) or 0),
-                            int(row.get("height", 0) or 0),
-                            str(row.get("name", "") or "").strip(),
-                            str(row.get("role", "") or "").strip(),
-                        )
-                        if key in seen:
-                            continue
-                        seen.add(key)
-                        merged.append(row)
-                    raw_controls = merged
-                    raw_mode = "tree_plus_control_snapshot"
-            except Exception as merge_err:
-                logger.warning(f"AT-SPI普通快照补全失败: {merge_err}")
-
-        tool_window_info = _get_active_window_geometry_xdotool()
-        coordinate_diagnostics = _build_atspi_coordinate_diagnostics(
-            raw_controls=raw_controls,
-            manager_window_info=manager_window_info,
-            tool_window_info=tool_window_info,
-        )
-
-        nodes = []
-        dedup_keys = set()
-        for row in raw_controls:
-            index = int(row.get("index", len(nodes)))
-            role_value = str(row.get("role", "") or "")
-            name_value = str(row.get("name", "") or "")
-            text_value = str(row.get("text", "") or "")
-
-            if role_kw and role_kw not in role_value.lower():
-                continue
-
-            searchable = f"{name_value} {text_value} {role_value}".lower()
-            matched_keywords = [term for term in keywords if _atspi_term_hit(searchable, term)]
-            if keyword_required and not matched_keywords:
-                continue
-
-            x = int(row.get("x", 0) or 0)
-            y = int(row.get("y", 0) or 0)
-            width = int(row.get("width", 0) or 0)
-            height = int(row.get("height", 0) or 0)
-            depth_value = int(row.get("depth", 0) or 0)
-            parent_index_value = int(row.get("parent_index", -1) or -1)
-            path_value = str(row.get("path", f"Root -> Node[{index}]"))
-
-            if deduplicate:
-                dedup_key = (name_value.strip().lower(), role_value.strip().lower(), x, y, width, height)
-                if dedup_key in dedup_keys:
-                    continue
-                dedup_keys.add(dedup_key)
-
-            match_score = 0.0
-            if matched_keywords:
-                match_score += min(1.0, 0.2 * len(matched_keywords))
-            if name_value and text_value:
-                match_score += 0.1
-            if width > 0 and height > 0:
-                match_score += 0.1
-            if "button" in role_value.lower() or "entry" in role_value.lower() or "text" in role_value.lower():
-                match_score += 0.1
-
-            node = {
-                "node_id": f"node_{index}",
-                "index": index,
-                "depth": depth_value,
-                "parent_index": parent_index_value,
-                "path": path_value,
-                "name": name_value,
-                "role": role_value,
-                "text": text_value,
-                "bounds": {
-                    "x": x,
-                    "y": y,
-                    "width": width,
-                    "height": height,
-                    "center_x": x + width // 2,
-                    "center_y": y + height // 2,
-                },
-                "clickable_hint": "button" in role_value.lower() or "menu" in role_value.lower(),
-                "matched_keywords": matched_keywords[:12],
-                "match_score": round(match_score, 3),
-            }
-            nodes.append(node)
-
-        nodes.sort(
-            key=lambda item: (
-                float(item.get("match_score", 0.0)),
-                int(item.get("bounds", {}).get("width", 0)) * int(item.get("bounds", {}).get("height", 0)),
+        payload = build_snapshot_payload(
+            manager=manager,
+            options=ATSPIQueryOptions(
+                role_filter=role_filter,
+                name_filter=name_filter,
+                max_nodes=max_nodes,
+                auto_activate=auto_activate,
+                auto_refresh_tree=auto_refresh_tree,
+                refresh_rounds=refresh_rounds,
+                refresh_interval_ms=refresh_interval_ms,
+                deep_search=deep_search,
+                include_common_keywords=include_common_keywords,
+                extra_terms=extra_terms,
+                require_keyword_match=require_keyword_match,
+                prefer_tree=prefer_tree,
+                max_depth=max_depth,
+                export_json=export_json,
+                export_path=export_path,
+                deduplicate=deduplicate,
             ),
-            reverse=True,
         )
-        nodes = nodes[:limit]
-
-        export_file = ""
-        if export_json:
-            if export_path:
-                export_file = export_path
-            else:
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                export_file = f"/tmp/wechat_atspi_tree_{ts}.json"
-            payload = {
-                "success": True,
-                "count": len(nodes),
-                "generated_at": datetime.now().isoformat(),
-                "nodes": nodes,
-                "filters": {
-                    "role_filter": role_filter or "",
-                    "name_filter": name_filter or "",
-                    "max_nodes": limit,
-                    "snapshot_limit": snapshot_limit,
-                    "auto_activate": auto_activate,
-                    "deep_search": deep_search,
-                    "include_common_keywords": include_common_keywords,
-                    "extra_terms": extra_terms or "",
-                    "require_keyword_match": keyword_required,
-                    "expanded_keywords": keywords,
-                    "prefer_tree": prefer_tree,
-                    "max_depth": max_depth,
-                    "raw_mode": raw_mode,
-                    "activation_settle_seconds": activation_settle_seconds,
-                    "coordinate_diagnostics": coordinate_diagnostics,
-                },
-            }
-            try:
-                with open(export_file, "w", encoding="utf-8") as f:
-                    json.dump(payload, f, ensure_ascii=False, indent=2)
-            except Exception as export_err:
-                logger.warning(f"AT-SPI树导出失败: {export_err}")
-                export_file = ""
-
-        return {
-            "success": True,
-            "nodes": nodes,
-            "count": len(nodes),
-            "filters": {
-                "role_filter": role_filter or "",
-                "name_filter": name_filter or "",
-                "max_nodes": limit,
-                "snapshot_limit": snapshot_limit,
-                "auto_activate": auto_activate,
-                "deep_search": deep_search,
-                "include_common_keywords": include_common_keywords,
-                "extra_terms": extra_terms or "",
-                "require_keyword_match": keyword_required,
-                "expanded_keywords": keywords,
-                "prefer_tree": prefer_tree,
-                "max_depth": max_depth,
-                "raw_mode": raw_mode,
-                "tree_attempted": tree_attempted,
-                "tree_nodes_count": tree_nodes_count,
-                "tree_error": tree_error,
-                "deduplicate": deduplicate,
-                "activation_settle_seconds": activation_settle_seconds,
-                "coordinate_diagnostics": coordinate_diagnostics,
-            },
-            "activated": activated,
-            "export_file": export_file,
-            "message": f"AT-SPI快照完成，返回 {len(nodes)} 个节点"
-        }
+        return payload
     except Exception as e:
         logger.error(f"获取AT-SPI控件树快照失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取AT-SPI控件树快照失败: {str(e)}")

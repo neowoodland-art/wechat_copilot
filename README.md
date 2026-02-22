@@ -1,6 +1,6 @@
 # WeChat Copilot
 
-Linux 微信自动化项目，当前架构为：**C++ RPA 核心 + Python/FastAPI 服务层 + Vue 前端测试与管理界面**。
+Linux 微wx自动化项目，当前架构为：**C++ RPA 核心 + Python/FastAPI 服务层 + Vue 前端测试与管理界面**。
 
 ## 今日与近期总结（按天）
 
@@ -28,12 +28,12 @@ Linux 微信自动化项目，当前架构为：**C++ RPA 核心 + Python/FastAP
 ## 目录说明
 - `backend/`：FastAPI 后端（API、业务编排、数据存储）。
 - `frontend/`：Vite + Vue 前端调试与管理页面。
-- `cpp_rpa/`：C++ 微信自动化核心模块（含 pybind11 绑定）。
+- `cpp_rpa/`：C++ 微wx自动化核心模块（含 pybind11 绑定）。
 - `rpa/`：Python 侧兼容/封装层。
 - `docs/`：规格与SOP文档。
 
 ## 当前重点能力
-- 微信窗口锁定与布局控制。
+- 微wx窗口锁定与布局控制。
 - 模板化区域标注（聊天/联系人）。
 - 鼠标扫描（可中断、可观测进度、区域调试）。
 - 标注构建后截图确认。

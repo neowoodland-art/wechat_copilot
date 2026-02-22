@@ -2,6 +2,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
+#include <set>
 #include "wechat_manager.h"
 #include "image_processor.h"
 #include "ocr_engine.h"
@@ -90,6 +91,26 @@ PYBIND11_MODULE(wechat_rpa, m) {
             return mat_to_numpy(self.capture_full_window());
         })
         .def("find_ui_elements", &wechat_rpa::WeChatManager::find_ui_elements)
+        .def("get_ui_elements", [](wechat_rpa::WeChatManager &self) {
+            std::vector<std::map<std::string, std::string>> items;
+            auto elements = self.analyze_ui_elements();
+            int index = 0;
+            for (const auto &entry : elements) {
+                const auto &name = entry.first;
+                const auto &region = entry.second;
+                std::map<std::string, std::string> item;
+                item["index"] = std::to_string(index++);
+                item["name"] = name;
+                item["role"] = "ui_element";
+                item["text"] = "";
+                item["x"] = std::to_string(region.x);
+                item["y"] = std::to_string(region.y);
+                item["width"] = std::to_string(region.width);
+                item["height"] = std::to_string(region.height);
+                items.push_back(item);
+            }
+            return items;
+        })
         .def("get_element_region", &wechat_rpa::WeChatManager::get_element_region)
         .def("capture_base_interface", [](wechat_rpa::WeChatManager &self) {
             return mat_to_numpy(self.capture_base_interface());
@@ -149,7 +170,34 @@ PYBIND11_MODULE(wechat_rpa, m) {
         .def("get_control_region", &wechat_rpa::ATSPIEngine::get_control_region)
         .def("get_control_text", &wechat_rpa::ATSPIEngine::get_control_text)
         .def("get_control_name", &wechat_rpa::ATSPIEngine::get_control_name)
-        .def("get_control_role", &wechat_rpa::ATSPIEngine::get_control_role);
+        .def("get_control_role", &wechat_rpa::ATSPIEngine::get_control_role)
+        .def("capture_tree_snapshot", [](wechat_rpa::ATSPIEngine &self, int max_nodes, int max_depth, bool include_text, bool deduplicate) {
+            std::vector<std::map<std::string, std::string>> snapshot;
+            if (!self.is_available() && !self.initialize()) {
+                return snapshot;
+            }
+
+            AtspiAccessible* app = self.get_wechat_application();
+            if (!app) {
+                return snapshot;
+            }
+
+            snapshot = self.capture_tree_snapshot(app, max_nodes, max_depth, include_text, deduplicate);
+
+#ifdef HAVE_ATSPI
+            g_object_unref(app);
+#endif
+
+            return snapshot;
+        }, py::arg("max_nodes") = 800, py::arg("max_depth") = -1, py::arg("include_text") = true, py::arg("deduplicate") = false)
+        .def("get_ui_elements", [](wechat_rpa::ATSPIEngine &self, int max_nodes) {
+            AtspiAccessible* root = nullptr;  // Will use desktop root
+            return self.capture_tree_snapshot(root, max_nodes, -1, true, false);
+        }, py::arg("max_nodes") = 300)
+        .def("traverse_control_tree", [](wechat_rpa::ATSPIEngine &self, int max_nodes, int max_depth) {
+            AtspiAccessible* root = nullptr;  // Will use desktop root
+            return self.capture_tree_snapshot(root, max_nodes, max_depth, true, false);
+        }, py::arg("max_nodes") = 800, py::arg("max_depth") = -1);
 
     // 绑定WindowManager类
     py::class_<wechat_rpa::WindowManager>(m, "WindowManager")

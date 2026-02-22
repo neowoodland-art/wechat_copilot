@@ -63,8 +63,31 @@ export const deleteATSPI = async (ids = []) => {
 }
 
 export const clearATSPI = async (confirm = false) => {
-  const response = await api.post('/v1/atspi/clear', { confirm })
-  return response.data
+  const endpoints = ['/v1/atspi/clear', '/v1/rpa/atspi/clear']
+  let lastError
+  for (const endpoint of endpoints) {
+    try {
+      const response = await api.post(endpoint, { confirm }, { params: { confirm }, timeout: 60000 })
+      return response.data
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError
+}
+
+export const clearATSPIForce = async () => {
+  const endpoints = ['/v1/atspi/clear_force', '/v1/rpa/atspi/clear_force']
+  let lastError
+  for (const endpoint of endpoints) {
+    try {
+      const response = await api.post(endpoint, undefined, { timeout: 60000 })
+      return response.data
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError
 }
 
 export const exportATSPI = async (params = {}) => {

@@ -1,11 +1,11 @@
 from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
-import os
 from pathlib import Path
 
-# 数据库文件路径
-db_path = Path("data/wechat.db")
-db_path.parent.mkdir(exist_ok=True)
+# 数据库文件路径（固定到 backend/data，避免因启动目录不同读写到不同DB）
+backend_root = Path(__file__).resolve().parents[1]
+db_path = backend_root / "data" / "wechat.db"
+db_path.parent.mkdir(parents=True, exist_ok=True)
 
 # 创建数据库引擎
 engine = create_engine(f"sqlite:///{db_path}", echo=False, connect_args={"check_same_thread": False})

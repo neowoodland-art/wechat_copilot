@@ -3,12 +3,82 @@
 #include <iostream>
 #include <algorithm>
 #include <cctype>
+#include <unordered_set>
 
 #ifdef HAVE_ATSPI
 #include <atspi/atspi-constants.h>
 #endif
 
 namespace wechat_rpa {
+
+#ifdef HAVE_ATSPI
+namespace {
+
+std::string to_lower_copy(const std::string& input) {
+    std::string output = input;
+    std::transform(output.begin(), output.end(), output.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return output;
+}
+
+int count_descendants_limited(AtspiAccessible* root, int max_nodes = 12000, int max_depth = 32) {
+    if (!root || max_nodes <= 0) {
+        return 0;
+    }
+
+    struct NodeDepth {
+        AtspiAccessible* node;
+        int depth;
+        bool release;
+    };
+
+    int visited = 0;
+    std::vector<NodeDepth> stack;
+    stack.push_back({root, 0, false});
+
+    while (!stack.empty() && visited < max_nodes) {
+        NodeDepth current = stack.back();
+        stack.pop_back();
+
+        if (!current.node) {
+            continue;
+        }
+
+        ++visited;
+
+        if (current.depth < max_depth) {
+            GError* error = nullptr;
+            gint child_count = atspi_accessible_get_child_count(current.node, &error);
+            if (error) {
+                g_error_free(error);
+                error = nullptr;
+                child_count = 0;
+            }
+
+            for (gint i = child_count - 1; i >= 0; --i) {
+                AtspiAccessible* child = atspi_accessible_get_child_at_index(current.node, i, &error);
+                if (error) {
+                    g_error_free(error);
+                    error = nullptr;
+                    continue;
+                }
+                if (!child) {
+                    continue;
+                }
+                stack.push_back({child, current.depth + 1, true});
+            }
+        }
+
+        if (current.release) {
+            g_object_unref(current.node);
+        }
+    }
+
+    return visited;
+}
+
+} // namespace
+#endif
 
 ATSPIEngine::ATSPIEngine() : initialized_(false) {
 }
@@ -62,7 +132,7 @@ AtspiAccessible* ATSPIEngine::get_wechat_application() {
     }
     
     AtspiAccessible* best_app = nullptr;
-    gint best_child_count = -1;
+    int best_candidate_score = -1;
 
     for (gint i = 0; i < child_count; i++) {
         AtspiAccessible* app = atspi_accessible_get_child_at_index(desktop, i, &error);
@@ -82,9 +152,7 @@ AtspiAccessible* ATSPIEngine::get_wechat_application() {
             }
             
             std::string app_name = name ? std::string(name) : "";
-            std::string app_name_lower = app_name;
-            std::transform(app_name_lower.begin(), app_name_lower.end(), app_name_lower.begin(),
-                          [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            std::string app_name_lower = to_lower_copy(app_name);
 
             bool is_wechat = app_name_lower.find("wechat") != std::string::npos
                 || app_name_lower.find("weixin") != std::string::npos
@@ -98,14 +166,22 @@ AtspiAccessible* ATSPIEngine::get_wechat_application() {
                     app_children = 0;
                 }
 
-                if (app_children > best_child_count) {
+                int descendant_count = count_descendants_limited(app);
+                int candidate_score = descendant_count * 1000 + app_children;
+                if (app_name_lower == "wechat") {
+                    candidate_score += 500;
+                }
+
+                if (candidate_score > best_candidate_score) {
                     if (best_app) {
                         g_object_unref(best_app);
                     }
                     best_app = app;
-                    best_child_count = app_children;
+                    best_candidate_score = candidate_score;
                     std::cout << "[DEBUG] 候选微信应用: " << app_name
-                              << ", child_count=" << app_children << std::endl;
+                              << ", child_count=" << app_children
+                              << ", descendants=" << descendant_count
+                              << ", score=" << candidate_score << std::endl;
                 } else {
                     g_object_unref(app);
                 }
@@ -119,7 +195,7 @@ AtspiAccessible* ATSPIEngine::get_wechat_application() {
     
     g_object_unref(desktop);
     if (best_app) {
-        std::cout << "[DEBUG] 选择微信应用节点, child_count=" << best_child_count << std::endl;
+        std::cout << "[DEBUG] 选择微信应用节点, score=" << best_candidate_score << std::endl;
     }
     return best_app;
 #else
@@ -130,38 +206,52 @@ AtspiAccessible* ATSPIEngine::get_wechat_application() {
 
 std::vector<AtspiAccessible*> ATSPIEngine::get_all_controls(AtspiAccessible* root) {
     std::vector<AtspiAccessible*> controls;
-    
+
     if (!root) {
         return controls;
     }
-    
+
 #ifdef HAVE_ATSPI
-    GError *error = nullptr;
-    
-    // 递归获取所有控件
-    gint child_count = atspi_accessible_get_child_count(root, &error);
-    if (error) {
-        g_error_free(error);
-        return controls;
-    }
-    
-    for (gint i = 0; i < child_count; i++) {
-        AtspiAccessible* child = atspi_accessible_get_child_at_index(root, i, &error);
-        if (error) {
-            g_error_free(error);
-            error = nullptr;
+    struct StackItem {
+        AtspiAccessible* node;
+    };
+
+    std::vector<StackItem> stack;
+    stack.push_back({root});
+
+    while (!stack.empty()) {
+        StackItem current = stack.back();
+        stack.pop_back();
+
+        if (!current.node) {
             continue;
         }
-        
-        if (child) {
+
+        GError* error = nullptr;
+        gint child_count = atspi_accessible_get_child_count(current.node, &error);
+        if (error) {
+            g_error_free(error);
+            continue;
+        }
+
+        for (gint i = child_count - 1; i >= 0; --i) {
+            AtspiAccessible* child = atspi_accessible_get_child_at_index(current.node, i, &error);
+            if (error) {
+                g_error_free(error);
+                error = nullptr;
+                continue;
+            }
+
+            if (!child) {
+                continue;
+            }
+
             controls.push_back(child);
-            // 递归处理子控件
-            std::vector<AtspiAccessible*> child_controls = get_all_controls(child);
-            controls.insert(controls.end(), child_controls.begin(), child_controls.end());
+            stack.push_back({child});
         }
     }
 #endif
-    
+
     return controls;
 }
 
@@ -547,6 +637,116 @@ AtspiRect ATSPIEngine::get_control_bounds(AtspiAccessible* control) {
 #endif
     
     return rect;
+}
+
+std::vector<std::map<std::string, std::string>> ATSPIEngine::capture_tree_snapshot(
+    AtspiAccessible* root,
+    int max_nodes,
+    int max_depth,
+    bool include_text,
+    bool deduplicate
+) {
+    std::vector<std::map<std::string, std::string>> snapshot;
+    if (!root || !initialized_) {
+        return snapshot;
+    }
+
+#ifdef HAVE_ATSPI
+    struct StackItem {
+        AtspiAccessible* node;
+        int depth;
+        int parent_index;
+        int sibling_index;
+        std::string path;
+        bool is_root;
+    };
+
+    const int limit = std::max(1, max_nodes);
+    std::unordered_set<std::string> dedup_keys;
+    std::vector<StackItem> stack;
+    stack.push_back({root, 0, -1, 0, "root", true});
+
+    while (!stack.empty() && static_cast<int>(snapshot.size()) < limit) {
+        StackItem current = stack.back();
+        stack.pop_back();
+
+        AtspiAccessible* node = current.node;
+        if (!node) {
+            continue;
+        }
+
+        Region region = get_control_region(node);
+        std::string name = get_control_name(node);
+        std::string role = get_control_role(node);
+        std::string text = include_text ? get_control_text(node) : "";
+
+        std::string dedup_key = name + "|" + role + "|"
+            + std::to_string(region.x) + "|"
+            + std::to_string(region.y) + "|"
+            + std::to_string(region.width) + "|"
+            + std::to_string(region.height);
+
+        bool keep = true;
+        if (deduplicate) {
+            keep = dedup_keys.insert(dedup_key).second;
+        }
+
+        int current_index = current.parent_index;
+        if (keep) {
+            current_index = static_cast<int>(snapshot.size());
+            std::map<std::string, std::string> item;
+            item["index"] = std::to_string(current_index);
+            item["depth"] = std::to_string(current.depth);
+            item["parent_index"] = std::to_string(current.parent_index);
+            item["sibling_index"] = std::to_string(current.sibling_index);
+            item["path"] = current.path;
+            item["name"] = name;
+            item["role"] = role;
+            item["text"] = text;
+            item["x"] = std::to_string(region.x);
+            item["y"] = std::to_string(region.y);
+            item["width"] = std::to_string(region.width);
+            item["height"] = std::to_string(region.height);
+            snapshot.push_back(item);
+        }
+
+        if (max_depth < 0 || current.depth < max_depth) {
+            GError* error = nullptr;
+            gint child_count = atspi_accessible_get_child_count(node, &error);
+            if (error) {
+                g_error_free(error);
+                error = nullptr;
+            } else {
+                for (gint i = child_count - 1; i >= 0; --i) {
+                    AtspiAccessible* child = atspi_accessible_get_child_at_index(node, i, &error);
+                    if (error) {
+                        g_error_free(error);
+                        error = nullptr;
+                        continue;
+                    }
+
+                    if (!child) {
+                        continue;
+                    }
+
+                    std::string child_path = current.path + "/child[" + std::to_string(i) + "]";
+                    stack.push_back({child, current.depth + 1, current_index, static_cast<int>(i), child_path, false});
+                }
+            }
+        }
+
+        if (!current.is_root) {
+            g_object_unref(node);
+        }
+    }
+#else
+    (void)max_nodes;
+    (void)max_depth;
+    (void)include_text;
+    (void)deduplicate;
+#endif
+
+    return snapshot;
 }
 
 } // namespace wechat_rpa

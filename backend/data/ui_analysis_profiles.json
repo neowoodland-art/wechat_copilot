@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-02-22T00:39:40.213272",
+  "updated_at": "2026-02-23T09:34:37.102766",
   "profiles": {
     "wechat_main_layout": {
       "profile_name": "wechat_main_layout",
@@ -670,7 +670,7 @@
       "profile_name": "wechat_main_layout_chat",
       "template_type": "chat",
       "status": "regions_ready",
-      "updated_at": "2026-02-21T15:41:12.672Z",
+      "updated_at": "2026-02-23T01:34:37.082Z",
       "window_lock": {
         "x": 940,
         "y": 0,

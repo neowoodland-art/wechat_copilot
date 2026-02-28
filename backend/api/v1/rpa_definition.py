@@ -1007,6 +1007,19 @@ async def _execute_action(
         max_peer_lines = max(1, min(int(rendered.get("max_peer_lines", 20) or 20), 120))
         peer_texts = peer_texts[-max_peer_lines:]
 
+        if not peer_texts:
+            fallback_text = str(
+                rendered.get("peer_text")
+                or variables.get("peer_text")
+                or variables.get("message")
+                or ""
+            ).strip()
+            if fallback_text:
+                peer_texts = [fallback_text]
+
+        if dry_run and not peer_texts:
+            peer_texts = ["<dry_run: 未抓取到对方聊天内容，占位样例>"]
+
         if not peer_texts and str(rendered.get("require_messages", "true")).lower() in {"1", "true", "yes", "on"}:
             return {"success": False, "message": "缺少可用于AI解析的对方聊天内容，请先执行 atspi.chat_messages"}
 

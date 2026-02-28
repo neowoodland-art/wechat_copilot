@@ -4,12 +4,44 @@
 #include <algorithm>
 #include <cctype>
 #include <unordered_set>
+#include <unordered_map>
+#include <sstream>
 
 #ifdef HAVE_ATSPI
 #include <atspi/atspi-constants.h>
 #endif
 
 namespace wechat_rpa {
+
+namespace {
+
+std::string to_lower_copy_generic(const std::string& input) {
+    std::string output = input;
+    std::transform(output.begin(), output.end(), output.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return output;
+}
+
+bool contains_case_insensitive(const std::string& source, const std::string& token) {
+    if (token.empty()) {
+        return true;
+    }
+    return to_lower_copy_generic(source).find(to_lower_copy_generic(token)) != std::string::npos;
+}
+
+std::string bool_to_string(bool value) {
+    return value ? "1" : "0";
+}
+
+int to_int_safe(const std::string& value, int fallback = 0) {
+    try {
+        return std::stoi(value);
+    } catch (...) {
+        return fallback;
+    }
+}
+
+} // namespace
 
 #ifdef HAVE_ATSPI
 namespace {
@@ -658,13 +690,14 @@ std::vector<std::map<std::string, std::string>> ATSPIEngine::capture_tree_snapsh
         int parent_index;
         int sibling_index;
         std::string path;
+        std::string parent_path;
         bool is_root;
     };
 
     const int limit = std::max(1, max_nodes);
     std::unordered_set<std::string> dedup_keys;
     std::vector<StackItem> stack;
-    stack.push_back({root, 0, -1, 0, "root", true});
+    stack.push_back({root, 0, -1, 0, "root", "", true});
 
     while (!stack.empty() && static_cast<int>(snapshot.size()) < limit) {
         StackItem current = stack.back();
@@ -679,6 +712,44 @@ std::vector<std::map<std::string, std::string>> ATSPIEngine::capture_tree_snapsh
         std::string name = get_control_name(node);
         std::string role = get_control_role(node);
         std::string text = include_text ? get_control_text(node) : "";
+        std::string parent_role;
+
+        bool is_visible = false;
+        bool is_showing = false;
+        bool is_editable = false;
+        bool is_focusable = false;
+        bool is_sensitive = false;
+
+        GError* state_error = nullptr;
+        AtspiStateSet* state_set = atspi_accessible_get_state_set(node);
+        if (state_set) {
+            is_visible = atspi_state_set_contains(state_set, ATSPI_STATE_VISIBLE);
+            is_showing = atspi_state_set_contains(state_set, ATSPI_STATE_SHOWING);
+            is_editable = atspi_state_set_contains(state_set, ATSPI_STATE_EDITABLE);
+            is_focusable = atspi_state_set_contains(state_set, ATSPI_STATE_FOCUSABLE);
+            is_sensitive = atspi_state_set_contains(state_set, ATSPI_STATE_SENSITIVE);
+            g_object_unref(state_set);
+        }
+
+        AtspiAccessible* parent_node = atspi_accessible_get_parent(node, &state_error);
+        if (state_error) {
+            g_error_free(state_error);
+            state_error = nullptr;
+        }
+        if (parent_node) {
+            gchar* parent_role_name = atspi_accessible_get_role_name(parent_node, &state_error);
+            if (!state_error && parent_role_name) {
+                parent_role = parent_role_name;
+            }
+            if (parent_role_name) {
+                g_free(parent_role_name);
+            }
+            if (state_error) {
+                g_error_free(state_error);
+                state_error = nullptr;
+            }
+            g_object_unref(parent_node);
+        }
 
         std::string dedup_key = name + "|" + role + "|"
             + std::to_string(region.x) + "|"
@@ -700,13 +771,20 @@ std::vector<std::map<std::string, std::string>> ATSPIEngine::capture_tree_snapsh
             item["parent_index"] = std::to_string(current.parent_index);
             item["sibling_index"] = std::to_string(current.sibling_index);
             item["path"] = current.path;
+            item["parent_path"] = current.parent_path;
             item["name"] = name;
             item["role"] = role;
+            item["parent_role"] = parent_role;
             item["text"] = text;
             item["x"] = std::to_string(region.x);
             item["y"] = std::to_string(region.y);
             item["width"] = std::to_string(region.width);
             item["height"] = std::to_string(region.height);
+            item["visible"] = bool_to_string(is_visible);
+            item["showing"] = bool_to_string(is_showing);
+            item["editable"] = bool_to_string(is_editable);
+            item["focusable"] = bool_to_string(is_focusable);
+            item["sensitive"] = bool_to_string(is_sensitive);
             snapshot.push_back(item);
         }
 
@@ -730,7 +808,7 @@ std::vector<std::map<std::string, std::string>> ATSPIEngine::capture_tree_snapsh
                     }
 
                     std::string child_path = current.path + "/child[" + std::to_string(i) + "]";
-                    stack.push_back({child, current.depth + 1, current_index, static_cast<int>(i), child_path, false});
+                    stack.push_back({child, current.depth + 1, current_index, static_cast<int>(i), child_path, current.path, false});
                 }
             }
         }
@@ -747,6 +825,194 @@ std::vector<std::map<std::string, std::string>> ATSPIEngine::capture_tree_snapsh
 #endif
 
     return snapshot;
+}
+
+std::vector<ATSPINodeInfo> ATSPIEngine::capture_tree_nodes(
+    AtspiAccessible* root,
+    int max_nodes,
+    int max_depth,
+    bool include_text
+) {
+    std::vector<ATSPINodeInfo> nodes;
+    auto snapshot = capture_tree_snapshot(root, max_nodes, max_depth, include_text, false);
+    nodes.reserve(snapshot.size());
+
+    for (const auto& item : snapshot) {
+        ATSPINodeInfo node;
+        auto get = [&item](const std::string& key) -> std::string {
+            auto it = item.find(key);
+            return it == item.end() ? "" : it->second;
+        };
+
+        node.index = to_int_safe(get("index"), -1);
+        node.depth = to_int_safe(get("depth"), 0);
+        node.parent_index = to_int_safe(get("parent_index"), -1);
+        node.sibling_index = to_int_safe(get("sibling_index"), 0);
+        node.path = get("path");
+        node.parent_path = get("parent_path");
+        node.name = get("name");
+        node.role = get("role");
+        node.text = get("text");
+        node.parent_role = get("parent_role");
+        node.region.x = to_int_safe(get("x"), 0);
+        node.region.y = to_int_safe(get("y"), 0);
+        node.region.width = to_int_safe(get("width"), 0);
+        node.region.height = to_int_safe(get("height"), 0);
+        node.visible = get("visible") == "1";
+        node.showing = get("showing") == "1";
+        node.editable = get("editable") == "1";
+        node.focusable = get("focusable") == "1";
+        node.sensitive = get("sensitive") == "1";
+        nodes.push_back(node);
+    }
+
+    return nodes;
+}
+
+std::vector<ATSPINodeInfo> ATSPIEngine::query_nodes(
+    AtspiAccessible* root,
+    const ATSPIQuery& query,
+    int max_nodes,
+    int max_depth
+) {
+    std::vector<ATSPINodeInfo> matched;
+    if (!root || !initialized_) {
+        return matched;
+    }
+
+    Region root_region = get_control_region(root);
+    const bool can_use_ratio = root_region.width > 0 && root_region.height > 0;
+    auto nodes = capture_tree_nodes(root, max_nodes, max_depth, true);
+
+    for (const auto& node : nodes) {
+        if (!query.role_equals.empty() && to_lower_copy_generic(node.role) != to_lower_copy_generic(query.role_equals)) {
+            continue;
+        }
+        if (!query.role_contains.empty() && !contains_case_insensitive(node.role, query.role_contains)) {
+            continue;
+        }
+        if (!query.name_contains.empty() && !contains_case_insensitive(node.name, query.name_contains)) {
+            continue;
+        }
+        if (!query.text_contains.empty() && !contains_case_insensitive(node.text, query.text_contains)) {
+            continue;
+        }
+        if (!query.parent_role_equals.empty() && to_lower_copy_generic(node.parent_role) != to_lower_copy_generic(query.parent_role_equals)) {
+            continue;
+        }
+        if (!query.path_contains.empty() && !contains_case_insensitive(node.path, query.path_contains)) {
+            continue;
+        }
+        if (query.expected_depth >= 0 && node.depth != query.expected_depth) {
+            continue;
+        }
+        if (query.min_depth >= 0 && node.depth < query.min_depth) {
+            continue;
+        }
+        if (query.max_depth >= 0 && node.depth > query.max_depth) {
+            continue;
+        }
+        if (query.require_visible && !node.visible) {
+            continue;
+        }
+        if (query.require_showing && !node.showing) {
+            continue;
+        }
+        if (query.require_editable && !node.editable) {
+            continue;
+        }
+        if (query.require_focusable && !node.focusable) {
+            continue;
+        }
+        if (query.require_sensitive && !node.sensitive) {
+            continue;
+        }
+        if (query.require_non_empty_name && node.name.empty()) {
+            continue;
+        }
+        if (query.require_non_empty_text && node.text.empty()) {
+            continue;
+        }
+        if (query.require_non_zero_rect && (node.region.width <= 0 || node.region.height <= 0)) {
+            continue;
+        }
+
+        if (can_use_ratio) {
+            const double x_ratio = static_cast<double>(node.region.x - root_region.x) /
+                std::max(1, root_region.width);
+            const double y_ratio = static_cast<double>(node.region.y - root_region.y) /
+                std::max(1, root_region.height);
+
+            if (query.min_x_ratio >= 0.0 && x_ratio < query.min_x_ratio) {
+                continue;
+            }
+            if (query.max_x_ratio >= 0.0 && x_ratio > query.max_x_ratio) {
+                continue;
+            }
+            if (query.min_y_ratio >= 0.0 && y_ratio < query.min_y_ratio) {
+                continue;
+            }
+            if (query.max_y_ratio >= 0.0 && y_ratio > query.max_y_ratio) {
+                continue;
+            }
+        }
+
+        matched.push_back(node);
+    }
+
+    return matched;
+}
+
+std::vector<ATSPIAtomicContainer> ATSPIEngine::build_atomic_containers(
+    AtspiAccessible* root,
+    const ATSPIQuery& query,
+    const std::string& group_by,
+    int max_nodes,
+    int max_depth
+) {
+    std::vector<ATSPIAtomicContainer> containers;
+    auto nodes = query_nodes(root, query, max_nodes, max_depth);
+    if (nodes.empty()) {
+        return containers;
+    }
+
+    std::unordered_map<std::string, std::vector<ATSPINodeInfo>> grouped;
+    grouped.reserve(nodes.size());
+
+    for (const auto& node : nodes) {
+        std::string key;
+        if (group_by == "path") {
+            key = node.path;
+        } else if (group_by == "role") {
+            key = node.role;
+        } else if (group_by == "depth_role") {
+            key = std::to_string(node.depth) + "|" + node.role;
+        } else {
+            key = node.parent_path.empty() ? "root" : node.parent_path;
+        }
+        grouped[key].push_back(node);
+    }
+
+    containers.reserve(grouped.size());
+    for (auto& kv : grouped) {
+        auto& items = kv.second;
+        std::sort(items.begin(), items.end(), [](const ATSPINodeInfo& a, const ATSPINodeInfo& b) {
+            if (a.depth != b.depth) {
+                return a.depth < b.depth;
+            }
+            return a.sibling_index < b.sibling_index;
+        });
+        ATSPIAtomicContainer container;
+        container.key = kv.first;
+        container.items = std::move(items);
+        containers.push_back(std::move(container));
+    }
+
+    std::sort(containers.begin(), containers.end(), [](const ATSPIAtomicContainer& a, const ATSPIAtomicContainer& b) {
+        return a.key < b.key;
+    });
+
+    return containers;
 }
 
 } // namespace wechat_rpa

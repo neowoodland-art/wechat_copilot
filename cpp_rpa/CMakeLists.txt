@@ -18,6 +18,10 @@ endif()
 find_package(OpenCV REQUIRED)
 find_package(PkgConfig REQUIRED)
 
+# 使用pybind11的新式Python查找逻辑，避免CMP0148警告
+set(PYBIND11_FINDPYTHON ON)
+find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+
 # 查找ATSPI库依赖
 pkg_check_modules(ATSPI QUIET atspi-2)
 # 在Manjaro/Arch中，atk-bridge是at-spi2-core的一部分
@@ -127,8 +131,25 @@ if(ATSPI_FOUND)
     target_link_libraries(wechat_rpa_core ${ATSPI_LIBRARIES})
 endif()
 
-# 查找pybind11
-find_package(pybind11 REQUIRED)
+# 查找pybind11（优先系统包，失败则回退到python模块路径）
+find_package(pybind11 QUIET)
+if(NOT pybind11_FOUND)
+    message(STATUS "pybind11 not found via CMake package, trying python -m pybind11 --cmakedir")
+    execute_process(
+        COMMAND python3 -m pybind11 --cmakedir
+        OUTPUT_VARIABLE PYBIND11_CMAKE_DIR
+        ERROR_QUIET
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    if(PYBIND11_CMAKE_DIR)
+        set(pybind11_DIR "${PYBIND11_CMAKE_DIR}" CACHE PATH "pybind11 CMake directory" FORCE)
+        message(STATUS "Using pybind11_DIR from python module: ${pybind11_DIR}")
+        find_package(pybind11 REQUIRED)
+    else()
+        message(FATAL_ERROR "pybind11 not found. Install python pybind11 package or system pybind11 CMake package.")
+    endif()
+endif()
 
 # Python绑定
 pybind11_add_module(wechat_rpa bindings/python_bindings.cpp)

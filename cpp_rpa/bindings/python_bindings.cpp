@@ -120,6 +120,22 @@ PYBIND11_MODULE(wechat_rpa, m) {
         .def("get_control_text_by_atspi", &wechat_rpa::WeChatManager::get_control_text_by_atspi)
         .def("get_atspi_control_snapshot", &wechat_rpa::WeChatManager::get_atspi_control_snapshot)
         .def("get_atspi_tree_snapshot", &wechat_rpa::WeChatManager::get_atspi_tree_snapshot)
+           .def("query_atomic_controls", &wechat_rpa::WeChatManager::query_atomic_controls,
+               py::arg("filters"), py::arg("max_nodes") = 1600, py::arg("max_depth") = -1)
+           .def("get_atomic_container_by_profile", &wechat_rpa::WeChatManager::get_atomic_container_by_profile,
+               py::arg("profile_name"), py::arg("group_by") = "parent_path", py::arg("max_nodes") = 1800, py::arg("max_depth") = -1)
+           .def("list_atomic_profiles", &wechat_rpa::WeChatManager::list_atomic_profiles)
+           .def("refresh_atomic_profile", &wechat_rpa::WeChatManager::refresh_atomic_profile,
+               py::arg("profile_name"), py::arg("max_nodes") = 2200, py::arg("max_depth") = 24)
+           .def("find_chat_atomic_groups", &wechat_rpa::WeChatManager::find_chat_atomic_groups,
+               py::arg("max_nodes") = 2200, py::arg("max_depth") = 24)
+           .def("detect_popup_atomic_controls", &wechat_rpa::WeChatManager::detect_popup_atomic_controls,
+               py::arg("max_nodes") = 1600, py::arg("max_depth") = 24)
+           .def("execute_atomic_action", &wechat_rpa::WeChatManager::execute_atomic_action,
+               py::arg("action_spec"))
+           .def("click_atomic_control", &wechat_rpa::WeChatManager::click_atomic_control)
+           .def("input_text_atomic_control", &wechat_rpa::WeChatManager::input_text_atomic_control)
+           .def("activate_atomic_control", &wechat_rpa::WeChatManager::activate_atomic_control)
         .def("humanized_click", &wechat_rpa::WeChatManager::humanized_click)
         .def("humanized_input", &wechat_rpa::WeChatManager::humanized_input)
         .def("ensure_wechat_available", &wechat_rpa::WeChatManager::ensure_wechat_available)

@@ -9,6 +9,7 @@
         <router-link to="/sop-editor">SOP编辑器</router-link>
         <router-link to="/ai-assistant">AI助手</router-link>
         <router-link to="/wechat-automation">微信自动化</router-link>
+        <router-link to="/wechat-operation-packages">微信操作打包</router-link>
         <router-link to="/customers">客户管理</router-link>
         <router-link to="/settings">系统设置</router-link>
         <router-link to="/rpa-test">RPA全局设置</router-link>

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-02-23T09:34:37.102766",
+  "updated_at": "2026-02-26T14:32:06.211388",
   "profiles": {
     "wechat_main_layout": {
       "profile_name": "wechat_main_layout",
@@ -669,8 +669,8 @@
     "wechat_main_layout_chat": {
       "profile_name": "wechat_main_layout_chat",
       "template_type": "chat",
-      "status": "regions_ready",
-      "updated_at": "2026-02-23T01:34:37.082Z",
+      "status": "ready",
+      "updated_at": "2026-02-26T14:32:05.078375",
       "window_lock": {
         "x": 940,
         "y": 0,
@@ -731,15 +731,322 @@
       },
       "layers": {
         "base_scan_layer": [],
-        "annotation_layer": [],
+        "annotation_layer": [
+          {
+            "id": "atspi_0001",
+            "name": "发送(S)",
+            "function": "激活",
+            "clickable": true,
+            "needs_rescan_after_click": false,
+            "control_type": "button",
+            "confidence": 0.5,
+            "notes": "",
+            "bounds": {
+              "x": 841,
+              "y": 965,
+              "width": 96,
+              "height": 32
+            },
+            "geometry": {
+              "center_x": 889,
+              "center_y": 981,
+              "area": 3072
+            }
+          },
+          {
+            "id": "atspi_0002",
+            "name": "搜索",
+            "function": "激活",
+            "clickable": true,
+            "needs_rescan_after_click": false,
+            "control_type": "text",
+            "confidence": 0.4,
+            "notes": "",
+            "bounds": {
+              "x": 78,
+              "y": 31,
+              "width": 116,
+              "height": 22
+            },
+            "geometry": {
+              "center_x": 136,
+              "center_y": 42,
+              "area": 2552
+            }
+          },
+          {
+            "id": "atspi_0003",
+            "name": "通讯录",
+            "function": "激活",
+            "clickable": true,
+            "needs_rescan_after_click": false,
+            "control_type": "button",
+            "confidence": 0.3,
+            "notes": "",
+            "bounds": {
+              "x": 17,
+              "y": 145,
+              "width": 60,
+              "height": 40
+            },
+            "geometry": {
+              "center_x": 47,
+              "center_y": 165,
+              "area": 2400
+            }
+          },
+          {
+            "id": "atspi_0004",
+            "name": "收藏",
+            "function": "激活",
+            "clickable": true,
+            "needs_rescan_after_click": false,
+            "control_type": "button",
+            "confidence": 0.3,
+            "notes": "",
+            "bounds": {
+              "x": 17,
+              "y": 193,
+              "width": 60,
+              "height": 40
+            },
+            "geometry": {
+              "center_x": 47,
+              "center_y": 213,
+              "area": 2400
+            }
+          },
+          {
+            "id": "atspi_0005",
+            "name": "朋友圈",
+            "function": "激活",
+            "clickable": true,
+            "needs_rescan_after_click": false,
+            "control_type": "button",
+            "confidence": 0.3,
+            "notes": "",
+            "bounds": {
+              "x": 17,
+              "y": 241,
+              "width": 60,
+              "height": 40
+            },
+            "geometry": {
+              "center_x": 47,
+              "center_y": 261,
+              "area": 2400
+            }
+          },
+          {
+            "id": "atspi_0006",
+            "name": "消息输入",
+            "function": "激活",
+            "clickable": true,
+            "needs_rescan_after_click": false,
+            "control_type": "text",
+            "confidence": 0.3,
+            "notes": "",
+            "bounds": {
+              "x": 309,
+              "y": 923,
+              "width": 528,
+              "height": 40
+            },
+            "geometry": {
+              "center_x": 573,
+              "center_y": 943,
+              "area": 21120
+            }
+          },
+          {
+            "id": "atspi_0007",
+            "name": "第一联系人",
+            "function": "激活",
+            "clickable": true,
+            "needs_rescan_after_click": false,
+            "control_type": "list item",
+            "confidence": 0.4,
+            "notes": "",
+            "bounds": {
+              "x": 128,
+              "y": 99,
+              "width": 214,
+              "height": 68
+            },
+            "geometry": {
+              "center_x": 235,
+              "center_y": 133,
+              "area": 14552
+            }
+          }
+        ],
         "control_layer": [],
         "geometry_layer": {}
       },
       "execution": {
         "rescan_region_ids": [],
-        "rescan_required_on_click": false
+        "rescan_required_on_click": false,
+        "clickable_count": 7
       },
-      "stable_elements": []
+      "stable_elements": [
+        {
+          "id": "atspi_0001",
+          "name": "发送(S)",
+          "function": "激活",
+          "clickable": true,
+          "needs_rescan_after_click": false,
+          "control_type": "button",
+          "confidence": 0.5,
+          "notes": "",
+          "bounds": {
+            "x": 841,
+            "y": 965,
+            "width": 96,
+            "height": 32
+          },
+          "geometry": {
+            "center_x": 889,
+            "center_y": 981,
+            "area": 3072
+          }
+        },
+        {
+          "id": "atspi_0002",
+          "name": "搜索",
+          "function": "激活",
+          "clickable": true,
+          "needs_rescan_after_click": false,
+          "control_type": "text",
+          "confidence": 0.4,
+          "notes": "",
+          "bounds": {
+            "x": 78,
+            "y": 31,
+            "width": 116,
+            "height": 22
+          },
+          "geometry": {
+            "center_x": 136,
+            "center_y": 42,
+            "area": 2552
+          }
+        },
+        {
+          "id": "atspi_0003",
+          "name": "通讯录",
+          "function": "激活",
+          "clickable": true,
+          "needs_rescan_after_click": false,
+          "control_type": "button",
+          "confidence": 0.3,
+          "notes": "",
+          "bounds": {
+            "x": 17,
+            "y": 145,
+            "width": 60,
+            "height": 40
+          },
+          "geometry": {
+            "center_x": 47,
+            "center_y": 165,
+            "area": 2400
+          }
+        },
+        {
+          "id": "atspi_0004",
+          "name": "收藏",
+          "function": "激活",
+          "clickable": true,
+          "needs_rescan_after_click": false,
+          "control_type": "button",
+          "confidence": 0.3,
+          "notes": "",
+          "bounds": {
+            "x": 17,
+            "y": 193,
+            "width": 60,
+            "height": 40
+          },
+          "geometry": {
+            "center_x": 47,
+            "center_y": 213,
+            "area": 2400
+          }
+        },
+        {
+          "id": "atspi_0005",
+          "name": "朋友圈",
+          "function": "激活",
+          "clickable": true,
+          "needs_rescan_after_click": false,
+          "control_type": "button",
+          "confidence": 0.3,
+          "notes": "",
+          "bounds": {
+            "x": 17,
+            "y": 241,
+            "width": 60,
+            "height": 40
+          },
+          "geometry": {
+            "center_x": 47,
+            "center_y": 261,
+            "area": 2400
+          }
+        },
+        {
+          "id": "atspi_0006",
+          "name": "消息输入",
+          "function": "激活",
+          "clickable": true,
+          "needs_rescan_after_click": false,
+          "control_type": "text",
+          "confidence": 0.3,
+          "notes": "",
+          "bounds": {
+            "x": 309,
+            "y": 923,
+            "width": 528,
+            "height": 40
+          },
+          "geometry": {
+            "center_x": 573,
+            "center_y": 943,
+            "area": 21120
+          }
+        },
+        {
+          "id": "atspi_0007",
+          "name": "第一联系人",
+          "function": "激活",
+          "clickable": true,
+          "needs_rescan_after_click": false,
+          "control_type": "list item",
+          "confidence": 0.4,
+          "notes": "",
+          "bounds": {
+            "x": 128,
+            "y": 99,
+            "width": 214,
+            "height": 68
+          },
+          "geometry": {
+            "center_x": 235,
+            "center_y": 133,
+            "area": 14552
+          }
+        }
+      ],
+      "window_lock_match": true,
+      "current_window": {
+        "id": 54525968,
+        "title": "微信",
+        "x": 940,
+        "y": 0,
+        "width": 980,
+        "height": 1020,
+        "is_active": false
+      }
     }
   }
 }

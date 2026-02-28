@@ -42,6 +42,41 @@ export const analyzeUITree = async () => {
   return response.data
 }
 
+export const listAtomicProfiles = async () => {
+  const response = await api.get('/v1/rpa/atomic/profiles')
+  return response.data
+}
+
+export const refreshAtomicProfile = async (data) => {
+  const response = await api.post('/v1/rpa/atomic/profile/refresh', data)
+  return response.data
+}
+
+export const discoverChatAtomicGroups = async (data = {}) => {
+  const response = await api.post('/v1/rpa/atomic/chat/discover', data)
+  return response.data
+}
+
+export const discoverPopupAtomicControls = async (data = {}) => {
+  const response = await api.post('/v1/rpa/atomic/popup/discover', data)
+  return response.data
+}
+
+export const executeAtomicAction = async (data) => {
+  const response = await api.post('/v1/rpa/atomic/action/execute', data)
+  return response.data
+}
+
+export const queryAtomicControls = async (data = {}) => {
+  const response = await api.post('/v1/rpa/atomic/query', data)
+  return response.data
+}
+
+export const listAtomicQueryPresets = async () => {
+  const response = await api.get('/v1/rpa/atomic/query/presets')
+  return response.data
+}
+
 export const captureATSPI = async (data = {}) => {
   const response = await api.post('/v1/atspi/capture', data)
   return response.data

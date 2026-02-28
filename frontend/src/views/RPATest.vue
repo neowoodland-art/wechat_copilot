@@ -31,12 +31,12 @@
 
     <div class="panel-tabs">
       <button class="tab-btn" :class="{ active: activeGroup === 'basic' }" @click="activeGroup = 'basic'">1.基础控制</button>
-      <button class="tab-btn" :class="{ active: activeGroup === 'template' }" @click="activeGroup = 'template'">2.设置区域标注</button>
-      <button class="tab-btn" :class="{ active: activeGroup === 'atspi' }" @click="activeGroup = 'atspi'">3.设置界面元素（ATSPI）</button>
-      <button class="tab-btn" :class="{ active: activeGroup === 'layout' }" @click="activeGroup = 'layout'">4.设置界面元素（鼠标扫描标注）</button>
-      <button class="tab-btn" :class="{ active: activeGroup === 'preview' }" @click="activeGroup = 'preview'">5.整合设置模板预览</button>
-      <button class="tab-btn" :class="{ active: activeGroup === 'ocr' }" @click="activeGroup = 'ocr'">6.设置界面元素（OCR识别AI分析）</button>
-      <button class="tab-btn" :class="{ active: activeGroup === 'wechatOps' }" @click="activeGroup = 'wechatOps'">7.微信操作打包</button>
+      <button class="tab-btn" :class="{ active: activeGroup === 'template' }" @click="activeGroup = 'template'">2.设置区域</button>
+      <button class="tab-btn" :class="{ active: activeGroup === 'atspi' }" @click="activeGroup = 'atspi'">3.界面ATSPI定位</button>
+      <button class="tab-btn" :class="{ active: activeGroup === 'layout' }" @click="activeGroup = 'layout'">4.界面鼠标定位</button>
+      <button class="tab-btn" :class="{ active: activeGroup === 'preview' }" @click="activeGroup = 'preview'">5.整合定位预览</button>
+      <button class="tab-btn" :class="{ active: activeGroup === 'atomicControls' }" @click="activeGroup = 'atomicControls'">6.生成原子控件</button>
+      <button class="tab-btn" :class="{ active: activeGroup === 'atomicContainerSettings' }" @click="activeGroup = 'atomicContainerSettings'">7.原子容器设置管理</button>
     </div>
 
     <div class="card test-section" v-if="activeGroup === 'basic'">
@@ -146,93 +146,157 @@
       </div>
     </div>
 
-    <div class="card test-section" v-if="activeGroup === 'wechatOps'">
+    <div class="card test-section" v-if="activeGroup === 'atomicControls'">
       <div class="card-header">
-        <h3>微信操作打包（发送 / 最新联系人 / 截图 / 输入 / 联系人信息）</h3>
+        <h3>生成原子控件（供微信操作打包调用）</h3>
       </div>
       <div class="card-body">
         <div class="status-info" style="margin-bottom:10px;">
-          <p><strong>说明:</strong> 本区域用于把“划区+控件+标注+OCR”结果打包成可被SOP调用的基础操作。</p>
+          <p><strong>说明:</strong> 当前页基于前面1-5完成后的校准控件，定义最小原子控件并保存到标准控件库。</p>
+          <p><strong>用途:</strong> 后续在“微信操作打包”里直接拖拽调用这些标准控件即可编排流程。</p>
+          <div class="action-grid" style="margin-top:8px;">
+            <button class="btn btn-secondary" @click="activateWeChat">激活微信</button>
+            <button class="btn btn-secondary" @click="getWindowInfo">列新窗口信息</button>
+            <button class="btn btn-secondary" @click="refreshAtomicPositioning">刷新辅助树与定位</button>
+          </div>
         </div>
+
+        <div class="result-box" style="margin-bottom:10px;">
+          <h4>来自第7步的配置文件（全局查询定义）</h4>
+          <div class="action-grid" style="margin-top:8px;">
+            <button class="btn btn-secondary" @click="loadAtomicPipelineConfig(false)">读取配置文件</button>
+            <button class="btn btn-primary" @click="applyAtomicPipelineConfigToGenerator(false)">应用到当前生成器</button>
+            <button
+              class="btn btn-success"
+              :disabled="!atomicPipelineCanAutoGenerate"
+              @click="applyAtomicPipelineConfigToGenerator(true)"
+            >按配置直接生成控件</button>
+          </div>
+          <pre v-if="atomicPipelineConfigSummary" style="margin-top:8px;">{{ atomicPipelineConfigSummary }}</pre>
+          <p v-else style="margin-top:8px;color:#555;">尚未读取到配置文件，可先到第7步点击“保存并带入第6步”。</p>
+          <p v-if="atomicPipelineConfig && !atomicPipelineCanAutoGenerate" style="margin-top:8px;color:#b91c1c;">
+            当前配置的 query_count={{ Number(atomicPipelineConfig?.query_count || 0) }}，不是唯一控件（必须=1），已禁止直接生成。
+          </p>
+        </div>
+
         <div class="row">
           <div class="col-md-6">
             <div class="form-group">
-              <label>消息内容:</label>
-              <input v-model="messageContent" type="text" placeholder="消息内容">
-            </div>
-            <div class="action-grid">
-              <button class="btn btn-success" @click="sendWeChatMessage">发送消息</button>
-              <button class="btn btn-info" @click="getLatestMessages">获取最新消息</button>
-              <button class="btn btn-primary" @click="captureMessageArea">截图消息区域</button>
-              <button class="btn btn-success" @click="captureFullWindow">截图完整窗口</button>
-              <button class="btn btn-warning" @click="humanizedInput">输入消息内容</button>
+              <label>profile_id（必填）:</label>
+              <input v-model.number="atomicProfileId" @wheel.prevent type="number" min="1" placeholder="控件库所属profile_id">
+              <div class="status-info" style="margin-top:6px;">
+                当前列表 profile_id: {{ Number(atomicProfileId || 0) || '-' }}
+                <span v-if="atomicLibraryLastLoadedAt"> | 最近加载: {{ atomicLibraryLastLoadedAt }}</span>
+              </div>
             </div>
 
             <div class="form-group" style="margin-top:12px;">
-              <label>联系人关键词:</label>
-              <input v-model="contactKeyword" type="text" placeholder="搜索关键词">
+              <label>选择已校准控件:</label>
+              <select v-model="atomicSelectedRegionId" class="form-control" @change="syncAtomicFromCalibratedControl">
+                <option value="">请选择控件</option>
+                <option v-for="item in availableCalibratedControlsForAtomic" :key="item.region_id" :value="item.region_id">
+                  {{ item.region_id }} | {{ item.name }} | {{ item.control_type }}
+                </option>
+              </select>
+              <div class="status-info" style="margin-top:6px;">
+                可选定位: {{ availableCalibratedControlsForAtomic.length }} / {{ calibratedControls.length }}
+              </div>
             </div>
-            <div class="action-grid">
-              <button class="btn btn-primary" @click="searchContact">获取联系人信息</button>
-              <button class="btn btn-secondary" @click="getContacts">获取联系人列表</button>
+
+            <div class="form-group" style="margin-top:12px;">
+              <label>control_uid（自动编号）:</label>
+              <input v-model="atomicControlUid" type="text" readonly placeholder="自动生成，如 atspi_0001">
+            </div>
+
+            <div class="form-group" style="margin-top:12px;">
+              <label>控件名称:</label>
+              <input v-model="atomicControlName" type="text" placeholder="如 第一联系人 / 消息输入 / 发送按钮">
+            </div>
+
+            <div class="input-row" style="margin-top:8px;">
+              <input v-model="atomicRegionKey" type="text" placeholder="region_key，如 contact_list/chat_input/main_menu">
+              <input v-model="atomicControlType" type="text" placeholder="control_type，如 list_item/input/button">
+            </div>
+
+            <div class="input-row" style="margin-top:8px;">
+              <input v-model="atomicPrimaryAction" type="text" placeholder="主动作，如 click/input_text">
+              <input v-model="atomicNextAction" type="text" placeholder="后续动作，如 focus_input/send_message">
+            </div>
+
+            <div class="input-row" style="margin-top:8px;">
+              <label style="display:flex;align-items:center;gap:6px;min-width:240px;">
+                <input type="checkbox" v-model="atomicRequiresPreUseRescan" /> 使用前更新坐标（预重扫）
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;min-width:220px;">
+                <input type="checkbox" v-model="atomicHasPostClickChange" /> 点击后界面可能变化
+              </label>
+            </div>
+
+            <div class="action-grid" style="margin-top:12px;">
+              <button class="btn btn-secondary" @click="syncAtomicFromCalibratedControl">从已校准控件同步</button>
+              <button class="btn btn-primary" @click="saveAtomicControlDefinition">保存为标准控件</button>
+              <button class="btn btn-info" @click="generateAtomicControlsFromDiscovery('chat')">从聊天原子容器生成控件</button>
+              <button class="btn btn-info" @click="generateAtomicControlsFromDiscovery('popup')">从弹窗原子容器生成控件</button>
+              <button class="btn btn-warning" @click="generateAtomicControlsFromDiscovery('query')">从高级查询生成控件</button>
+              <button class="btn btn-secondary" @click="resetAtomicEditor">清空编辑</button>
             </div>
           </div>
 
           <div class="col-md-6">
-            <div class="messages-list">
-              <h4>最新消息:</h4>
-              <div v-for="(msg, index) in latestMessages" :key="index" class="message-item">
-                <p><strong>{{ msg.sender }}:</strong> {{ msg.content }}</p>
-                <small>{{ new Date(msg.timestamp).toLocaleString() }}</small>
-              </div>
+            <div class="result-box">
+              <h4>标准控件预览（将写入微信操作打包可用控件）</h4>
+              <pre>{{ formatJson(buildAtomicControlPayload()) }}</pre>
             </div>
 
-            <div class="contacts-list" style="margin-top:12px;">
-              <h4>联系人列表:</h4>
-              <div v-for="(contact, index) in contacts" :key="index" class="contact-item">
-                <p><strong>{{ contact.name }}:</strong> {{ contact.nickname || '无昵称' }}</p>
-              </div>
+            <div class="result-box" style="margin-top:12px;" v-if="atomicSaveResult">
+              <h4>保存结果</h4>
+              <pre>{{ atomicSaveResult }}</pre>
             </div>
 
-            <div class="result-box" style="margin-top:12px;" v-if="selectedContactInfo">
-              <h4>联系人信息:</h4>
-              <pre>{{ selectedContactInfo }}</pre>
+            <div class="result-box" style="margin-top:12px;">
+              <h4>原子控件导入导出（JSON备份）</h4>
+              <div class="action-grid" style="margin-bottom:8px;">
+                <button class="btn btn-secondary" @click="loadAtomicControlLibrary">加载已生成控件</button>
+                <button class="btn btn-secondary" @click="exportAtomicControls">导出控件JSON</button>
+                <button class="btn btn-primary" @click="importAtomicControls">导入控件JSON</button>
+              </div>
+              <textarea v-model="atomicImportExportText" rows="8" placeholder="这里显示导出的JSON，或粘贴要导入的JSON"></textarea>
             </div>
           </div>
-        </div>
-
-        <div class="screenshot-container" v-if="messageScreenshot">
-          <h4>消息区域截图:</h4>
-          <img :src="messageScreenshot" alt="消息截图" class="screenshot-image">
-        </div>
-        <div class="screenshot-container" v-if="fullWindowScreenshot">
-          <h4>完整窗口截图:</h4>
-          <img :src="fullWindowScreenshot" alt="完整窗口截图" class="screenshot-image">
         </div>
 
         <div class="result-box" style="margin-top:12px;">
-          <h4>SOP调用参数打包预览</h4>
-          <div class="input-row">
-            <input v-model="sopPackageParams.contact" type="text" placeholder="联系人" />
-            <input v-model="sopPackageParams.scheduleTime" type="text" placeholder="时间，如 2026-02-21 18:30" />
+          <h4>已生成原子控件列表（{{ atomicLibraryItems.length }}）</h4>
+          <div class="action-grid" style="margin-bottom:8px;">
+            <button class="btn btn-secondary" @click="loadAtomicControlLibrary">刷新列表</button>
+            <button class="btn btn-danger" @click="clearAtomicControlsByProfile">清空当前profile控件</button>
+            <button class="btn btn-warning" @click="loadAtomicControlReferences">查看引用关系</button>
           </div>
-          <div class="input-row" style="margin-top:8px;">
-            <input v-model="sopPackageParams.content" type="text" placeholder="内容" />
-            <label style="display:flex;align-items:center;gap:6px;min-width:180px;">
-              <input type="checkbox" v-model="sopPackageParams.humanized" /> 是否拟人操作
-            </label>
+          <div v-if="atomicLibraryItems.length === 0" class="status-info">暂无控件，先保存一个标准控件。</div>
+          <div v-for="item in atomicLibraryItems" :key="item.id" class="element-item">
+            <p><strong>{{ item.control_uid }}</strong> | {{ item.control_type || '-' }} | {{ item.region_key || '-' }}</p>
+            <p>
+              bounds: ({{ item.bounds?.x || 0 }}, {{ item.bounds?.y || 0 }}, {{ item.bounds?.width || 0 }}x{{ item.bounds?.height || 0 }})
+              | actions: {{ (item.actions || []).join(', ') || '-' }}
+            </p>
+            <div class="action-grid" style="margin-top:6px;">
+              <button class="btn btn-sm btn-info" @click="editAtomicControlFromLibrary(item)">编辑</button>
+              <button class="btn btn-sm btn-danger" @click="deleteAtomicControl(item)">删除</button>
+            </div>
           </div>
-          <div class="action-grid" style="margin-top:8px;">
-            <button class="btn btn-primary" @click="buildWechatOperationPackage">生成操作打包JSON</button>
-          </div>
-          <pre v-if="sopPackPreview">{{ sopPackPreview }}</pre>
         </div>
+
+        <div class="result-box" style="margin-top:12px;" v-if="atomicReferencesResultText">
+          <h4>当前profile控件引用关系</h4>
+          <pre>{{ atomicReferencesResultText }}</pre>
+        </div>
+
       </div>
     </div>
 
     <div class="card test-section" v-if="activeGroup === 'atspi'">
       <div class="card-header">
-        <h3>设置界面元素（ATSPI）（全树/分层 + 点击位移校验）</h3>
+        <h3>界面ATSPI定位（全树/分层 + 点击位移校验）</h3>
       </div>
       <div class="card-body" :class="{ 'section-readonly': setupLocked }">
         <div class="lock-tip" v-if="setupLocked">第一轮设置已确认锁定：当前区域仅查看，不可修改。</div>
@@ -259,12 +323,12 @@
           </div>
           <div class="input-row" style="margin-top:8px;">
             <input v-model.number="atspiMaxNodes" type="number" placeholder="max_nodes" />
-            <select v-model.number="atspiMaxDepth">
-              <option :value="-1">全部层级</option>
-              <option :value="2">仅前2层</option>
-              <option :value="4">仅前4层</option>
-              <option :value="6">仅前6层</option>
-            </select>
+            <input
+              v-model.number="atspiMaxDepth"
+              type="number"
+              min="-1"
+              placeholder="深度过滤 max_depth（-1=不限）"
+            />
           </div>
           <div class="input-row" style="margin-top:8px; align-items:center; gap:12px;">
             <label style="display:flex; align-items:center; gap:6px; min-width:210px;">
@@ -425,7 +489,7 @@
           <div class="action-grid">
             <button class="btn btn-primary" @click="validateCalibratedControlClick">按校准坐标点击验证</button>
             <button class="btn btn-success" @click="saveCalibratedControl">保存校准控件</button>
-            <button class="btn btn-warning" @click="syncCalibratedControlsToAnnotationRows">同步到标注JSON</button>
+            <button class="btn btn-warning" @click="syncCalibratedControlsToAnnotationRows">同步到构建标注行</button>
             <button class="btn btn-secondary" @click="cancelCalibrationDraft">取消</button>
           </div>
         </div>
@@ -434,7 +498,7 @@
           <h4>已保存校准控件({{ calibratedControls.length }})</h4>
           <div class="action-grid">
             <button class="btn btn-secondary" @click="exportCalibratedControls">导出校准控件</button>
-            <button class="btn btn-warning" @click="syncCalibratedControlsToAnnotationRows">同步到标注JSON</button>
+            <button class="btn btn-warning" @click="syncCalibratedControlsToAnnotationRows">同步到构建标注行</button>
           </div>
           <div v-for="item in calibratedControls" :key="item.region_id" class="element-item">
             <p>
@@ -474,7 +538,7 @@
 
     <div class="card test-section" v-if="activeGroup === 'template'">
       <div class="card-header">
-        <h3>设置区域标注（2套模板 / 5个区域）</h3>
+        <h3>设置区域（2套模板 / 5个区域）</h3>
       </div>
       <div class="card-body" :class="{ 'section-readonly': setupLocked }">
         <div class="lock-tip" v-if="setupLocked">第一轮设置已确认锁定：当前区域仅查看，不可修改。</div>
@@ -572,28 +636,9 @@
       </div>
     </div>
 
-    <div class="card test-section" v-if="activeGroup === 'ocr'">
-      <div class="card-header">
-        <h3>设置界面元素（OCR识别AI分析）</h3>
-      </div>
-      <div class="card-body">
-        <div class="form-group">
-          <label>OCR图片路径:</label>
-          <input v-model="ocrImagePath" type="text" placeholder="例如: /tmp/wechat_capture.png" />
-        </div>
-        <div class="action-grid">
-          <button class="btn btn-primary" @click="extractOCRText">执行OCR识别</button>
-        </div>
-        <div class="result-box" v-if="ocrTextResult">
-          <h4>OCR结果:</h4>
-          <pre>{{ ocrTextResult }}</pre>
-        </div>
-      </div>
-    </div>
-
     <div class="card test-section" v-if="activeGroup === 'layout'">
       <div class="card-header">
-        <h3>设置界面元素（鼠标扫描标注）（第二级控件校对）</h3>
+        <h3>界面鼠标定位（第二级控件校对）</h3>
       </div>
       <div class="card-body" :class="{ 'section-readonly': setupLocked }">
         <div class="lock-tip" v-if="setupLocked">第一轮设置已确认锁定：当前区域仅查看，不可修改。</div>
@@ -690,7 +735,7 @@
         </div>
 
         <div class="form-group" style="margin-top: 12px;">
-          <label>标注JSON（用于构建配置）:</label>
+          <label>构建输入（可编辑JSON，用于入库构建）:</label>
           <textarea v-model="annotationJsonText" class="form-control" rows="8"></textarea>
         </div>
 
@@ -752,7 +797,7 @@
           </table>
 
           <div class="quick-actions" style="margin-top: 8px;">
-            <button @click="generateAnnotationJsonFromRows" class="btn btn-secondary">生成标注JSON</button>
+            <button @click="generateAnnotationJsonFromRows" class="btn btn-secondary">生成构建JSON</button>
             <button @click="runBuildProfileFromRows" class="btn btn-success">按当前标注构建配置</button>
           </div>
         </div>
@@ -832,11 +877,12 @@
 
     <div class="card test-section" v-if="activeGroup === 'preview'">
       <div class="card-header">
-        <h3>整合设置模板预览（最终确认）</h3>
+        <h3>整合定位预览（最终确认）</h3>
       </div>
       <div class="card-body">
         <div class="quick-actions">
           <button class="btn btn-primary" @click="captureFullWindow">刷新预览底图</button>
+          <button class="btn btn-info" @click="applyIntegratedRowsToCalibratedControls">应用整合结果到已校准控件</button>
           <button class="btn btn-success" @click="confirmAndLockSetup" :disabled="setupLocked">确认并锁定第一轮设置</button>
           <button class="btn btn-warning" @click="unlockSetup" :disabled="!setupLocked">解锁前4个设置区域</button>
         </div>
@@ -844,8 +890,8 @@
           <p><strong>第一轮设置状态:</strong> {{ setupLocked ? '已锁定（前4区只读）' : '未锁定（可继续调整）' }}</p>
         </div>
 
-        <div class="result-box" style="margin-top:10px;" v-if="fullWindowScreenshot && calibratedOverlayBoxes.length">
-          <h4>底图红框预览（已校准控件）</h4>
+        <div class="result-box" style="margin-top:10px;" v-if="fullWindowScreenshot">
+          <h4>底图红框预览（前置区域标注 + AT-SPI校准 + 鼠标标注整合）</h4>
           <div class="preview-canvas" :style="{ width: `${previewRenderedWidth}px` }">
             <img :src="fullWindowScreenshot" alt="preview-base" class="screenshot-image" @load="handlePreviewImageLoad" />
             <div
@@ -857,17 +903,40 @@
               <span class="overlay-label">#{{ item.serial_no }} {{ item.name }} ({{ item.control_type }})</span>
             </div>
           </div>
+          <p v-if="!calibratedOverlayBoxes.length" style="margin-top:8px; color:#666;">已加载底图，暂无可显示红框（请确认前置区域标注/AT-SPI校准/鼠标标注中至少一项已生成有效边界）。</p>
         </div>
 
         <div class="result-box" style="margin-top:10px;" v-else>
-          <p>暂无底图红框预览，请先截图完整窗口并至少保存1个校准控件。</p>
+          <p>暂无底图红框预览，请先截图完整窗口。</p>
         </div>
 
-        <div class="result-box" style="margin-top:10px;" v-if="calibratedControls.length">
-          <h4>控件统一确认清单({{ calibratedControls.length }})</h4>
-          <div v-for="item in calibratedControls" :key="`confirm_${item.region_id}`" class="element-item">
+        <div class="result-box" style="margin-top:10px;" v-if="integratedConflictGroups.length">
+          <h4>冲突选择（{{ integratedConflictGroups.length }} 组）</h4>
+          <p style="margin-bottom:8px; color:#666;">同一 region_id 存在多来源标注时，可在这里选择最终保留来源。</p>
+          <div v-for="group in integratedConflictGroups" :key="`conflict_${group.region_id}`" class="element-item">
+            <p><strong>{{ group.region_id }}</strong>（候选 {{ group.candidates.length }}）</p>
+            <select
+              class="form-control"
+              :value="getIntegratedConflictSelection(group)"
+              @change="updateIntegratedConflictSelection(group.region_id, $event.target.value)"
+            >
+              <option
+                v-for="candidate in group.candidates"
+                :key="candidate.candidate_key"
+                :value="candidate.candidate_key"
+              >
+                {{ candidate.source_label }} | {{ candidate.name }} | ({{ candidate.bounds.x }}, {{ candidate.bounds.y }}, {{ candidate.bounds.width }}x{{ candidate.bounds.height }})
+              </option>
+            </select>
+            <p v-if="group.resolved" style="margin-top:6px; color:#666;">当前生效: {{ group.resolved.source_label }} - {{ group.resolved.name }}</p>
+          </div>
+        </div>
+
+        <div class="result-box" style="margin-top:10px;" v-if="integratedControlRows.length">
+          <h4>控件统一确认清单({{ integratedControlRows.length }})</h4>
+          <div v-for="item in integratedControlRows" :key="`confirm_${item.region_id}`" class="element-item">
             <p><strong>#{{ item.serial_no }} {{ item.name }}</strong> ({{ item.control_type }})</p>
-            <p>所在界面: {{ item.ui_scene }} | 作用: {{ item.function }} | 点击后重识别: {{ item.needs_rescan_after_click ? '是' : '否' }}</p>
+            <p>来源: {{ item.source_label || '-' }} | 所在界面: {{ item.ui_scene || '-' }} | 作用: {{ item.function }} | 点击后重识别: {{ item.needs_rescan_after_click ? '是' : '否' }}</p>
             <p>坐标: ({{ item.bounds.x }}, {{ item.bounds.y }}, {{ item.bounds.width }}x{{ item.bounds.height }})</p>
           </div>
         </div>
@@ -896,18 +965,32 @@
       <p>此测试面板用于测试后端cpp_rpa模块的各个功能。</p>
       <p>所有操作都会调用后端API，通过C++ RPA模块执行相应的自动化任务。</p>
     </div>
+
+    <div class="card test-section" v-if="activeGroup === 'atomicContainerSettings'">
+      <div class="card-header">
+        <h3>原子容器设置管理（查询定义/规则预设/激活点击输入）</h3>
+      </div>
+      <div class="card-body">
+        <AtomicContainerSettings />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import axios from 'axios'
+import AtomicContainerSettings from './AtomicContainerSettings.vue'
 
 axios.defaults.baseURL = 'http://localhost:8000'
 
 const WECHAT_WINDOW_PRESET_KEY = 'wechat_window_activation_preset_v1'
 const ATSPI_CALIBRATED_CONTROLS_KEY = 'atspi_calibrated_controls_v1'
 const SETUP_ROUND1_LOCK_KEY = 'rpa_setup_round1_locked_v1'
+const ATOMIC_PROFILE_ID_KEY = 'rpa_atomic_profile_id_v1'
+const SHARED_PROFILE_ID_KEY = 'wechat_shared_profile_id_v1'
+const ATOMIC_CONTROLS_UPDATED_AT_KEY = 'wechat_atomic_controls_updated_at_v1'
+const ATOMIC_QUERY_PIPELINE_CONFIG_KEY = 'rpa_atomic_pipeline_config_v1'
 const DEFAULT_WECHAT_WINDOW_PRESET = {
   width: 980,
   height: 1025,
@@ -928,13 +1011,30 @@ const latestMessages = ref([])
 const contactKeyword = ref('')
 const contacts = ref([])
 const selectedContactInfo = ref('')
-const sopPackageParams = ref({
-  contact: '',
-  scheduleTime: '',
-  content: '',
-  humanized: true,
+const atomicProfileId = ref(null)
+const atomicSelectedRegionId = ref('')
+const atomicControlUid = ref('')
+const atomicControlName = ref('')
+const atomicRegionKey = ref('')
+const atomicControlType = ref('')
+const atomicPrimaryAction = ref('click')
+const atomicNextAction = ref('')
+const atomicRequiresPreUseRescan = ref(false)
+const atomicHasPostClickChange = ref(false)
+const atomicSaveResult = ref('')
+const atomicEditingControlId = ref(null)
+const atomicLibraryItems = ref([])
+const atomicImportExportText = ref('')
+const atomicLibraryLastLoadedAt = ref('')
+const atomicReferencesResultText = ref('')
+const atomicGenerateQueryFilters = ref({
+  role_contains: '',
+  name_contains: '',
+  expected_depth: '',
+  require_non_zero_rect: 'true',
 })
-const sopPackPreview = ref('')
+const atomicPipelineConfig = ref(null)
+const atomicPipelineConfigSummary = ref('')
 const controlName = ref('')
 const atspiResult = ref('')
 const atspiRoleFilter = ref('')
@@ -1059,6 +1159,7 @@ const manualRegionImageMetrics = ref({
   naturalWidth: 0,
   naturalHeight: 0,
 })
+const integratedConflictSelections = ref({})
 const regionAnnotationSteps = ref([
   { id: 'search_bar', name: '搜索栏', description: '顶部搜索输入框区域' },
   { id: 'main_menu', name: '主菜单工具栏', description: '顶部工具栏按钮区域' },
@@ -1272,6 +1373,22 @@ const ocrPreviewCount = computed(() => {
 const integratedPreviewRows = computed(() => {
   const rows = []
 
+  for (const row of (scanAnnotationRows.value || []).filter((item) => item?.enabled !== false).slice(0, 40)) {
+    const bounds = row?.bounds || {}
+    rows.push({
+      source: '构建标注行',
+      name: row?.name || row?.region_id || 'unknown',
+      type: row?.control_type || 'unknown',
+      bounds: {
+        x: Number(bounds.x || 0),
+        y: Number(bounds.y || 0),
+        width: Number(bounds.width || 0),
+        height: Number(bounds.height || 0),
+      },
+      extra: row?.region_id ? `region_id: ${row.region_id}` : '',
+    })
+  }
+
   for (const node of (atspiPositionedNodes.value || []).slice(0, 30)) {
     rows.push({
       source: 'ATSPI',
@@ -1332,6 +1449,228 @@ const integratedPreviewRows = computed(() => {
   return rows.slice(0, 100)
 })
 
+const INTEGRATED_SOURCE_PRIORITY = {
+  atspi: 1,
+  scan: 2,
+  region: 3,
+}
+
+const integratedRegionAnnotationRows = computed(() => {
+  const rows = []
+  for (const step of (regionAnnotationSteps.value || [])) {
+    const bounds = step?.bounds || {}
+    const width = Number(bounds.width || 0)
+    const height = Number(bounds.height || 0)
+    if (width <= 0 || height <= 0) continue
+    const regionId = String(step?.id || '').trim() || `region_${rows.length + 1}`
+    rows.push({
+      serial_no: rows.length + 1,
+      region_id: regionId,
+      name: step?.name || regionId,
+      control_type: 'region',
+      ui_scene: selectedTemplateType.value || '',
+      function: 'manual_region_anchor',
+      needs_rescan_after_click: false,
+      confidence: 1,
+      source_kind: 'region',
+      source_label: '前置区域标注',
+      bounds: {
+        x: Number(bounds.x || 0),
+        y: Number(bounds.y || 0),
+        width,
+        height,
+      },
+    })
+  }
+  return rows
+})
+
+const integratedAllCandidates = computed(() => {
+  const rows = []
+
+  for (const row of (scanAnnotationRows.value || [])) {
+    if (row?.enabled === false) continue
+    const bounds = row?.bounds || {}
+    const width = Number(bounds.width || 0)
+    const height = Number(bounds.height || 0)
+    if (width <= 0 || height <= 0) continue
+    const regionId = String(row?.region_id || '').trim() || `scan_${rows.length + 1}`
+    rows.push({
+      serial_no: Number(row?.serial_no || 0) || rows.length + 1,
+      region_id: regionId,
+      name: row?.name || regionId,
+      control_type: row?.control_type || 'other',
+      ui_scene: row?.ui_scene || '',
+      function: row?.function || 'unknown_action',
+      needs_rescan_after_click: !!row?.needs_rescan_after_click,
+      confidence: Number(row?.confidence || 0),
+      source_kind: 'scan',
+      source_label: row?.source_label || '鼠标标注/构建标注',
+      bounds: {
+        x: Number(bounds.x || 0),
+        y: Number(bounds.y || 0),
+        width,
+        height,
+      },
+    })
+  }
+
+  for (const item of (calibratedControls.value || [])) {
+    const bounds = item?.bounds || {}
+    const width = Number(bounds.width || 0)
+    const height = Number(bounds.height || 0)
+    if (width <= 0 || height <= 0) continue
+    const regionId = String(item?.region_id || '').trim() || `atspi_${rows.length + 1}`
+    rows.push({
+      ...item,
+      serial_no: Number(item?.serial_no || 0) || rows.length + 1,
+      region_id: regionId,
+      confidence: Number(item?.confidence || 0),
+      source_kind: 'atspi',
+      source_label: 'AT-SPI校准',
+      bounds: {
+        x: Number(bounds.x || 0),
+        y: Number(bounds.y || 0),
+        width,
+        height,
+      },
+    })
+  }
+
+  for (const regionRow of integratedRegionAnnotationRows.value) {
+    rows.push({
+      ...regionRow,
+      serial_no: Number(regionRow?.serial_no || 0) || rows.length + 1,
+      confidence: Number(regionRow?.confidence || 1),
+      source_kind: 'region',
+      source_label: '前置区域标注',
+    })
+  }
+
+  return rows.map((item, index) => ({
+    ...item,
+    candidate_key: `${item.source_kind || 'unknown'}::${item.region_id || 'unknown'}::${index}`,
+  }))
+})
+
+const resolveIntegratedCandidate = (candidates = [], regionId = '') => {
+  const selectedKey = String(integratedConflictSelections.value?.[regionId] || '')
+  const selected = candidates.find((item) => item?.candidate_key === selectedKey)
+  if (selected) return selected
+
+  const ranked = [...candidates].sort((a, b) => {
+    const pa = INTEGRATED_SOURCE_PRIORITY[a?.source_kind] || 99
+    const pb = INTEGRATED_SOURCE_PRIORITY[b?.source_kind] || 99
+    if (pa !== pb) return pa - pb
+    return Number(b?.confidence || 0) - Number(a?.confidence || 0)
+  })
+  return ranked[0] || null
+}
+
+const integratedConflictGroups = computed(() => {
+  const grouped = new Map()
+  for (const item of integratedAllCandidates.value) {
+    const regionId = String(item?.region_id || '').trim() || item?.candidate_key
+    if (!grouped.has(regionId)) {
+      grouped.set(regionId, [])
+    }
+    grouped.get(regionId).push(item)
+  }
+
+  const conflicts = []
+  for (const [region_id, candidates] of grouped.entries()) {
+    if (!Array.isArray(candidates) || candidates.length <= 1) continue
+    conflicts.push({
+      region_id,
+      candidates,
+      resolved: resolveIntegratedCandidate(candidates, region_id),
+    })
+  }
+  return conflicts.sort((a, b) => a.region_id.localeCompare(b.region_id))
+})
+
+const getIntegratedConflictSelection = (group) => {
+  const regionId = String(group?.region_id || '')
+  const candidates = Array.isArray(group?.candidates) ? group.candidates : []
+  const resolved = resolveIntegratedCandidate(candidates, regionId)
+  return resolved?.candidate_key || ''
+}
+
+const updateIntegratedConflictSelection = (regionId, candidateKey) => {
+  integratedConflictSelections.value = {
+    ...(integratedConflictSelections.value || {}),
+    [regionId]: candidateKey,
+  }
+}
+
+const integratedControlRows = computed(() => {
+  const grouped = new Map()
+  for (const item of integratedAllCandidates.value) {
+    const regionId = String(item?.region_id || '').trim() || item?.candidate_key
+    if (!grouped.has(regionId)) {
+      grouped.set(regionId, [])
+    }
+    grouped.get(regionId).push(item)
+  }
+
+  const resolved = []
+  for (const [regionId, candidates] of grouped.entries()) {
+    const picked = resolveIntegratedCandidate(candidates, regionId)
+    if (picked) {
+      resolved.push({ ...picked })
+    }
+  }
+
+  return resolved
+    .sort((a, b) => {
+      const sa = Number(a.serial_no || 0)
+      const sb = Number(b.serial_no || 0)
+      if (sa !== sb) return sa - sb
+      return String(a.region_id || '').localeCompare(String(b.region_id || ''))
+    })
+    .map((item, index) => ({
+      ...item,
+      serial_no: index + 1,
+    }))
+})
+
+const normalizeControlsForSyncCheck = (rows = []) => {
+  return (rows || [])
+    .map((item, index) => {
+      const bounds = item?.bounds || {}
+      const serialNo = Number(item?.serial_no || 0) > 0 ? Number(item.serial_no) : (index + 1)
+      const regionId = String(item?.region_id || '').trim() || buildCalibratedRegionId(serialNo)
+      return {
+        region_id: regionId,
+        serial_no: serialNo,
+        name: String(item?.name || '').trim(),
+        control_type: String(item?.control_type || 'other').trim(),
+        function: String(item?.function || '').trim(),
+        needs_rescan_after_click: !!item?.needs_rescan_after_click,
+        bounds: {
+          x: Number(bounds.x || 0),
+          y: Number(bounds.y || 0),
+          width: Number(bounds.width || 0),
+          height: Number(bounds.height || 0),
+        },
+      }
+    })
+    .filter((item) => Number(item.bounds.width || 0) > 0 && Number(item.bounds.height || 0) > 0)
+    .sort((a, b) => {
+      const sa = Number(a.serial_no || 0)
+      const sb = Number(b.serial_no || 0)
+      if (sa !== sb) return sa - sb
+      return String(a.region_id || '').localeCompare(String(b.region_id || ''))
+    })
+}
+
+const hasPendingIntegratedSync = computed(() => {
+  const integrated = normalizeControlsForSyncCheck(integratedControlRows.value || [])
+  if (!integrated.length) return false
+  const calibrated = normalizeControlsForSyncCheck(calibratedControls.value || [])
+  return JSON.stringify(integrated) !== JSON.stringify(calibrated)
+})
+
 const calibratedOverlayBoxes = computed(() => {
   if (!previewRenderedWidth.value || !previewNaturalWidth.value || !previewNaturalHeight.value) {
     return []
@@ -1340,11 +1679,49 @@ const calibratedOverlayBoxes = computed(() => {
   const scale = previewRenderedWidth.value / previewNaturalWidth.value
   const wx = Number(windowPosition.value.x || 0)
   const wy = Number(windowPosition.value.y || 0)
+  const imageWidth = Number(previewNaturalWidth.value || 0)
+  const imageHeight = Number(previewNaturalHeight.value || 0)
 
-  return (calibratedControls.value || []).map((item) => {
+  const insideRatio = (left, top, width, height) => {
+    if (width <= 0 || height <= 0 || imageWidth <= 0 || imageHeight <= 0) {
+      return 0
+    }
+    const right = left + width
+    const bottom = top + height
+    const interLeft = Math.max(0, left)
+    const interTop = Math.max(0, top)
+    const interRight = Math.min(imageWidth, right)
+    const interBottom = Math.min(imageHeight, bottom)
+    const interWidth = Math.max(0, interRight - interLeft)
+    const interHeight = Math.max(0, interBottom - interTop)
+    const interArea = interWidth * interHeight
+    const totalArea = width * height
+    return totalArea > 0 ? interArea / totalArea : 0
+  }
+
+  let relativeScore = 0
+  let absoluteScore = 0
+  for (const item of integratedControlRows.value) {
     const b = item?.bounds || {}
-    const left = (Number(b.x || 0) - wx) * scale
-    const top = (Number(b.y || 0) - wy) * scale
+    const x = Number(b.x || 0)
+    const y = Number(b.y || 0)
+    const width = Number(b.width || 0)
+    const height = Number(b.height || 0)
+    if (width <= 0 || height <= 0) continue
+    relativeScore += insideRatio(x, y, width, height)
+    absoluteScore += insideRatio(x - wx, y - wy, width, height)
+  }
+
+  const useAbsolute = absoluteScore > relativeScore
+
+  return integratedControlRows.value.map((item) => {
+    const b = item?.bounds || {}
+    const rawX = Number(b.x || 0)
+    const rawY = Number(b.y || 0)
+    const mappedX = useAbsolute ? (rawX - wx) : rawX
+    const mappedY = useAbsolute ? (rawY - wy) : rawY
+    const left = mappedX * scale
+    const top = mappedY * scale
     const width = Math.max(2, Number(b.width || 0) * scale)
     const height = Math.max(2, Number(b.height || 0) * scale)
     return {
@@ -1394,11 +1771,532 @@ const showMessage = (message, type = 'info') => {
   console.log(`${type}: ${message}`)
 }
 
+const formatErrorDetail = (error, fallback = '未知错误') => {
+  const detail = error?.response?.data?.detail
+  if (typeof detail === 'string' && detail.trim()) return detail
+  if (detail !== undefined && detail !== null) {
+    try {
+      return JSON.stringify(detail, null, 2)
+    } catch {
+      return String(detail)
+    }
+  }
+  return error?.message || fallback
+}
+
 const formatJson = (data) => {
   try {
     return JSON.stringify(data, null, 2)
   } catch {
     return String(data)
+  }
+}
+
+const selectedAtomicSourceControl = computed(() => {
+  const regionId = String(atomicSelectedRegionId.value || '').trim()
+  if (!regionId) return null
+  return (calibratedControls.value || []).find((item) => String(item.region_id || '').trim() === regionId) || null
+})
+
+const usedAtomicSourceRegionIds = computed(() => {
+  const used = new Set()
+  for (const item of (atomicLibraryItems.value || [])) {
+    const sourceRefId = String(item?.source_ref_id || '').trim()
+    if (sourceRefId) {
+      used.add(sourceRefId)
+    }
+  }
+  return used
+})
+
+const availableCalibratedControlsForAtomic = computed(() => {
+  const editingSourceRef = atomicEditingControlId.value
+    ? String(((atomicLibraryItems.value || []).find((item) => Number(item?.id || 0) === Number(atomicEditingControlId.value || 0))?.source_ref_id || '')).trim()
+    : ''
+  const selected = String(atomicSelectedRegionId.value || '').trim()
+  const allowSet = new Set([selected, editingSourceRef].filter(Boolean))
+  return (calibratedControls.value || []).filter((item) => {
+    const regionId = String(item?.region_id || '').trim()
+    if (!regionId) return false
+    if (allowSet.has(regionId)) return true
+    return !usedAtomicSourceRegionIds.value.has(regionId)
+  })
+})
+
+const atomicPipelineCanAutoGenerate = computed(() => {
+  const config = atomicPipelineConfig.value
+  if (!config) return false
+  return Number(config?.query_count || 0) === 1
+})
+
+const generateAtomicControlUid = () => {
+  const usedUid = new Set(
+    (atomicLibraryItems.value || [])
+      .map((item) => String(item?.control_uid || '').trim())
+      .filter(Boolean)
+  )
+  const usedSerial = new Set()
+  for (const uid of usedUid) {
+    const match = /^atspi_(\d+)$/i.exec(uid)
+    if (!match) continue
+    usedSerial.add(Number(match[1] || 0))
+  }
+
+  let serial = 1
+  while (usedSerial.has(serial)) {
+    serial += 1
+  }
+
+  let candidate = `atspi_${String(serial).padStart(4, '0')}`
+  while (usedUid.has(candidate)) {
+    serial += 1
+    candidate = `atspi_${String(serial).padStart(4, '0')}`
+  }
+  return candidate
+}
+
+const refreshAtomicControlUid = () => {
+  if (atomicEditingControlId.value) return
+  atomicControlUid.value = generateAtomicControlUid()
+}
+
+const parseAtomicActions = () => {
+  const actions = []
+  const primary = String(atomicPrimaryAction.value || '').trim()
+  const next = String(atomicNextAction.value || '').trim()
+  if (primary) actions.push(primary)
+  if (next) actions.push(next)
+  return actions
+}
+
+const buildAtomicControlPayload = () => {
+  const librarySource = atomicEditingControlId.value
+    ? ((atomicLibraryItems.value || []).find((item) => Number(item.id || 0) === Number(atomicEditingControlId.value || 0)) || {})
+    : {}
+  const source = selectedAtomicSourceControl.value || librarySource || {}
+  const bounds = source?.bounds || {}
+  const regionId = String(source?.region_id || atomicSelectedRegionId.value || '').trim()
+  const finalUid = String(atomicControlUid.value || '').trim() || generateAtomicControlUid()
+  const finalName = String(atomicControlName.value || source?.name || '').trim()
+  const finalRegionKey = String(atomicRegionKey.value || '').trim() || 'chat'
+  const finalControlType = String(atomicControlType.value || source?.control_type || '').trim()
+
+  return {
+    id: atomicEditingControlId.value || undefined,
+    control_uid: finalUid,
+    profile_id: Number(atomicProfileId.value || 0),
+    enabled: true,
+    region_key: finalRegionKey,
+    role: String(source?.role || finalControlType || '').trim(),
+    control_type: finalControlType,
+    depth: Number(source?.depth || 0),
+    depth_code: String(source?.depth_code || '00'),
+    access_path: String(source?.path || source?.access_path || '').trim(),
+    path_numeric_code: String(source?.path_numeric_code || '').trim(),
+    x: Number(bounds.x || 0),
+    y: Number(bounds.y || 0),
+    width: Number(bounds.width || 0),
+    height: Number(bounds.height || 0),
+    text: finalName,
+    window_type: 'chat',
+    actions: parseAtomicActions(),
+    is_clickable: true,
+    has_post_click_change: !!atomicHasPostClickChange.value,
+    source_type: 'calibrated',
+    source_ref_id: regionId,
+    confidence: Number(source?.confidence || 0.9),
+    meta: {
+      ui_scene: String(source?.ui_scene || '').trim(),
+      function: String(source?.function || '').trim(),
+      needs_rescan_after_click: !!source?.needs_rescan_after_click,
+      requires_pre_use_rescan: !!atomicRequiresPreUseRescan.value,
+      next_action: String(atomicNextAction.value || '').trim(),
+    },
+  }
+}
+
+const syncAtomicFromCalibratedControl = () => {
+  const source = selectedAtomicSourceControl.value
+  if (!source) {
+    atomicSaveResult.value = ''
+    refreshAtomicControlUid()
+    return
+  }
+
+  refreshAtomicControlUid()
+  atomicControlName.value = String(source.name || '').trim()
+  atomicRegionKey.value = String(source.ui_scene || '').includes('输入') ? 'chat_input' : 'chat'
+  atomicControlType.value = String(source.control_type || source.role || '').trim() || 'other'
+  atomicPrimaryAction.value = String(source.function || '').includes('输入') ? 'input_text' : 'click'
+  atomicNextAction.value = ''
+  atomicRequiresPreUseRescan.value = false
+  atomicHasPostClickChange.value = !!source.needs_rescan_after_click
+  atomicEditingControlId.value = null
+}
+
+const resetAtomicEditor = () => {
+  atomicSelectedRegionId.value = ''
+  atomicControlUid.value = generateAtomicControlUid()
+  atomicControlName.value = ''
+  atomicRegionKey.value = ''
+  atomicControlType.value = ''
+  atomicPrimaryAction.value = 'click'
+  atomicNextAction.value = ''
+  atomicRequiresPreUseRescan.value = false
+  atomicHasPostClickChange.value = false
+  atomicEditingControlId.value = null
+}
+
+const normalizeAtomicFilters = (raw = {}) => {
+  const payload = { ...(raw || {}) }
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === '' || payload[key] === null || payload[key] === undefined) {
+      delete payload[key]
+    }
+  })
+  return payload
+}
+
+const loadAtomicPipelineConfig = (silent = true) => {
+  try {
+    const raw = localStorage.getItem(ATOMIC_QUERY_PIPELINE_CONFIG_KEY)
+    if (!raw) {
+      atomicPipelineConfig.value = null
+      atomicPipelineConfigSummary.value = ''
+      if (!silent) {
+        showMessage('未找到第7步保存的配置文件', 'warning')
+      }
+      return null
+    }
+    const parsed = JSON.parse(raw)
+    atomicPipelineConfig.value = parsed
+    const profileId = Number(parsed?.profile_id || 0)
+    const queryCount = Number(parsed?.query_count || 0)
+    const preset = String(parsed?.selected_preset || '').trim() || '-'
+    atomicPipelineConfigSummary.value = `profile_id: ${profileId || '-'}\nquery_count: ${queryCount}\nselected_preset: ${preset}\nrecommended_source: ${parsed?.recommended_source || 'query'}`
+    if (!silent) {
+      showMessage('已读取第7步配置文件', 'success')
+    }
+    return parsed
+  } catch (error) {
+    atomicPipelineConfig.value = null
+    atomicPipelineConfigSummary.value = ''
+    if (!silent) {
+      showMessage(`配置文件读取失败: ${error?.message || '未知错误'}`, 'error')
+    }
+    return null
+  }
+}
+
+const applyAtomicPipelineConfigToGenerator = async (autoGenerate = false) => {
+  const config = atomicPipelineConfig.value || loadAtomicPipelineConfig(true)
+  if (!config) {
+    showMessage('请先在第7步生成并保存配置文件', 'warning')
+    return
+  }
+
+  const profileId = Number(config?.profile_id || 0)
+  if (profileId > 0) {
+    atomicProfileId.value = profileId
+  }
+
+  const filters = normalizeAtomicFilters(config?.filters || {})
+  atomicGenerateQueryFilters.value = {
+    ...filters,
+  }
+
+  const maxNodes = Number(config?.filters?.scan_max_nodes || config?.max_nodes || atspiMaxNodes.value || 2200)
+  const maxDepth = Number(config?.filters?.scan_max_depth || config?.max_depth || atspiMaxDepth.value || 24)
+  atspiMaxNodes.value = Number.isFinite(maxNodes) ? Math.max(200, maxNodes) : 2200
+  atspiMaxDepth.value = Number.isFinite(maxDepth) ? maxDepth : 24
+  activeGroup.value = 'atomicControls'
+
+  if (autoGenerate) {
+    const queryCount = Number(config?.query_count || 0)
+    if (queryCount !== 1) {
+      showMessage(`当前配置查询结果为 ${queryCount} 条，必须唯一（=1）才允许直接生成。请先回到第7步收敛查询条件。`, 'warning')
+      return
+    }
+    await generateAtomicControlsFromDiscovery('query')
+    return
+  }
+  showMessage('已应用配置到“从高级查询生成控件”参数，可直接点击生成', 'success')
+}
+
+const handleAtomicPipelineConfigReady = async (event) => {
+  loadAtomicPipelineConfig(true)
+  if (!atomicPipelineConfig.value) return
+  if (event?.detail?.jumpToAtomicControls) {
+    activeGroup.value = 'atomicControls'
+  }
+  await applyAtomicPipelineConfigToGenerator(false)
+}
+
+const refreshAtomicPositioning = async () => {
+  atspiAutoRefreshTree.value = true
+  atspiRefreshRounds.value = Math.max(1, Number(atspiRefreshRounds.value || 1))
+  atspiRefreshIntervalMs.value = Math.max(0, Number(atspiRefreshIntervalMs.value || 0))
+  await fetchATSPIControlTreeSnapshot(false, false)
+}
+
+const loadAtomicControlLibrary = async () => {
+  try {
+    const profileId = Number(atomicProfileId.value || 0)
+    if (!profileId) {
+      throw new Error('请先填写 profile_id')
+    }
+    atomicLibraryItems.value = []
+    const response = await axios.get('/api/v1/wechat/ui/controls', {
+      params: {
+        profile_id: profileId,
+        page: 1,
+        page_size: 500,
+      },
+    })
+    atomicLibraryItems.value = response.data?.items || []
+    atomicLibraryLastLoadedAt.value = new Date().toLocaleString()
+    refreshAtomicControlUid()
+  } catch (error) {
+    const detail = formatErrorDetail(error)
+    atomicLibraryItems.value = []
+    atomicLibraryLastLoadedAt.value = ''
+    showMessage(`加载原子控件失败: ${detail}`, 'error')
+  }
+}
+
+const editAtomicControlFromLibrary = (item) => {
+  atomicEditingControlId.value = Number(item?.id || 0) || null
+  atomicSelectedRegionId.value = String(item?.source_ref_id || '').trim()
+  atomicControlUid.value = String(item?.control_uid || '').trim()
+  atomicControlName.value = String(item?.text || '').trim()
+  atomicRegionKey.value = String(item?.region_key || '').trim()
+  atomicControlType.value = String(item?.control_type || '').trim()
+  atomicPrimaryAction.value = String((item?.actions || [])[0] || 'click').trim()
+  atomicNextAction.value = String((item?.meta || {})?.next_action || (item?.actions || [])[1] || '').trim()
+  atomicRequiresPreUseRescan.value = !!((item?.meta || {})?.requires_pre_use_rescan)
+  atomicHasPostClickChange.value = !!item?.has_post_click_change
+}
+
+const deleteAtomicControl = async (item) => {
+  try {
+    const profileId = Number(atomicProfileId.value || 0)
+    if (!profileId) {
+      throw new Error('请先填写 profile_id')
+    }
+    await axios.post('/api/v1/wechat/ui/controls/delete', {
+      profile_id: profileId,
+      ids: item?.id ? [Number(item.id)] : [],
+      control_uids: item?.control_uid ? [String(item.control_uid)] : [],
+      force_unlink_actions: true,
+    })
+    await loadAtomicControlLibrary()
+    await loadAtomicControlReferences({ silent: true })
+    showMessage(`已删除控件: ${item?.control_uid || item?.id}`, 'success')
+  } catch (error) {
+    const detail = formatErrorDetail(error)
+    showMessage(`删除原子控件失败: ${detail}`, 'error')
+  }
+}
+
+const clearAtomicControlsByProfile = async () => {
+  try {
+    const profileId = Number(atomicProfileId.value || 0)
+    if (!profileId) {
+      throw new Error('请先填写 profile_id')
+    }
+    const confirmed = window.confirm(`确认清空 profile_id=${profileId} 下的全部原子控件吗？`)
+    if (!confirmed) return
+
+    const response = await axios.post('/api/v1/wechat/ui/controls/delete', {
+      profile_id: profileId,
+      purge_profile: true,
+      force_unlink_actions: true,
+    })
+    await loadAtomicControlLibrary()
+    await loadAtomicControlReferences({ silent: true })
+    const deleted = Number(response?.data?.deleted || 0)
+    showMessage(`已清空 profile_id=${profileId}，删除 ${deleted} 个控件`, 'success')
+  } catch (error) {
+    const detail = formatErrorDetail(error)
+    showMessage(`清空原子控件失败: ${detail}`, 'error')
+  }
+}
+
+const loadAtomicControlReferences = async (options = {}) => {
+  try {
+    const silent = !!options?.silent
+    const profileId = Number(atomicProfileId.value || 0)
+    if (!profileId) {
+      throw new Error('请先填写 profile_id')
+    }
+    const response = await axios.get('/api/v1/wechat/ui/controls/references', {
+      params: {
+        profile_id: profileId,
+        include_cross_profile: true,
+      },
+    })
+    atomicReferencesResultText.value = formatJson(response.data || {})
+    const refsCount = Number(response?.data?.references_count || 0)
+    if (!silent) {
+      showMessage(`引用关系查询完成，共 ${refsCount} 条`, 'success')
+    }
+  } catch (error) {
+    const detail = formatErrorDetail(error)
+    atomicReferencesResultText.value = formatJson({ success: false, detail })
+    if (!options?.silent) {
+      showMessage(`查询引用关系失败: ${detail}`, 'error')
+    }
+  }
+}
+
+const exportAtomicControls = async () => {
+  try {
+    const profileId = Number(atomicProfileId.value || 0)
+    if (!profileId) {
+      throw new Error('请先填写 profile_id')
+    }
+    const response = await axios.get('/api/v1/wechat/ui/controls', {
+      params: { profile_id: profileId },
+    })
+    const payload = {
+      success: true,
+      profile_id: profileId,
+      exported_at: new Date().toISOString(),
+      controls: response.data?.items || [],
+    }
+    atomicImportExportText.value = JSON.stringify(payload, null, 2)
+
+    const blob = new Blob([atomicImportExportText.value], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `atomic_controls_profile_${profileId}_${Date.now()}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+    showMessage('原子控件已导出', 'success')
+  } catch (error) {
+    const detail = error?.response?.data?.detail || error?.message || '未知错误'
+    showMessage(`导出原子控件失败: ${detail}`, 'error')
+  }
+}
+
+const importAtomicControls = async () => {
+  try {
+    const profileId = Number(atomicProfileId.value || 0)
+    if (!profileId) {
+      throw new Error('请先填写 profile_id')
+    }
+    const raw = String(atomicImportExportText.value || '').trim()
+    if (!raw) {
+      throw new Error('请先粘贴控件JSON')
+    }
+    const parsed = JSON.parse(raw)
+    const controls = Array.isArray(parsed?.controls) ? parsed.controls : []
+    const regions = Array.isArray(parsed?.regions) ? parsed.regions : []
+    if (!controls.length) {
+      throw new Error('JSON中未找到controls数组')
+    }
+    await axios.post('/api/v1/wechat/ui/controls/import', {
+      profile: null,
+      regions,
+      controls: controls.map((item) => {
+        const bounds = item?.bounds || {}
+        return {
+          ...item,
+          profile_id: profileId,
+          x: Number(item?.x ?? bounds?.x ?? 0),
+          y: Number(item?.y ?? bounds?.y ?? 0),
+          width: Number(item?.width ?? bounds?.width ?? 0),
+          height: Number(item?.height ?? bounds?.height ?? 0),
+          actions: Array.isArray(item?.actions) ? item.actions : [],
+          meta: item?.meta || {},
+        }
+      }),
+    })
+    await loadAtomicControlLibrary()
+    showMessage(`导入完成，共${controls.length}个控件`, 'success')
+  } catch (error) {
+    const detail = error?.response?.data?.detail || error?.message || '未知错误'
+    showMessage(`导入原子控件失败: ${detail}`, 'error')
+  }
+}
+
+const saveAtomicControlDefinition = async () => {
+  try {
+    if (!atomicEditingControlId.value) {
+      atomicControlUid.value = generateAtomicControlUid()
+    }
+    const payload = buildAtomicControlPayload()
+    if (!payload.profile_id) {
+      throw new Error('请先填写 profile_id')
+    }
+    if (!String(payload.control_uid || '').trim()) {
+      throw new Error('control_uid不能为空')
+    }
+
+    const normalizedUid = String(payload.control_uid || '').trim()
+    const hit = (atomicLibraryItems.value || []).find((item) => String(item?.control_uid || '').trim() === normalizedUid)
+    const editingId = Number(atomicEditingControlId.value || 0)
+    const hitId = Number(hit?.id || 0)
+    if (hit && (!editingId || hitId !== editingId)) {
+      throw new Error(`control_uid已存在: ${normalizedUid}。若要新增，请使用新的control_uid；若要修改，请点列表里的“编辑”后保存。`)
+    }
+
+    const response = await axios.post('/api/v1/wechat/ui/controls/upsert', payload)
+    atomicSaveResult.value = formatJson(response.data || {})
+    persistAtomicProfileId()
+    localStorage.setItem(ATOMIC_CONTROLS_UPDATED_AT_KEY, String(Date.now()))
+    await loadAtomicControlLibrary()
+    if (!atomicEditingControlId.value) {
+      resetAtomicEditor()
+    }
+    showMessage('标准控件保存成功，可在微信操作打包中直接引用', 'success')
+  } catch (error) {
+    const detail = formatErrorDetail(error)
+    atomicSaveResult.value = formatJson({ success: false, detail })
+    showMessage(`保存标准控件失败: ${detail}`, 'error')
+  }
+}
+
+const generateAtomicControlsFromDiscovery = async (source) => {
+  try {
+    const profileId = Number(atomicProfileId.value || 0)
+    if (!profileId) {
+      throw new Error('请先填写 profile_id')
+    }
+
+    const payload = {
+      profile_id: profileId,
+      source: String(source || 'chat'),
+      max_nodes: Math.max(200, Number(atspiMaxNodes.value || 2200)),
+      max_depth: Number(atspiMaxDepth.value ?? 24),
+      limit: 300,
+      filters: {
+        ...(atomicGenerateQueryFilters.value || {}),
+      },
+    }
+
+    if (payload.source === 'query') {
+      Object.keys(payload.filters).forEach((key) => {
+        const raw = payload.filters[key]
+        if (raw === '' || raw === null || raw === undefined) {
+          delete payload.filters[key]
+          return
+        }
+        payload.filters[key] = String(raw)
+      })
+    }
+
+    const response = await axios.post('/api/v1/wechat/ui/controls/generate_from_atomic', payload)
+    const data = response.data || {}
+    atomicSaveResult.value = formatJson(data)
+    localStorage.setItem(ATOMIC_CONTROLS_UPDATED_AT_KEY, String(Date.now()))
+    await loadAtomicControlLibrary()
+    showMessage(`已生成标准控件 ${Number(data.generated || 0)} 个`, 'success')
+  } catch (error) {
+    const detail = formatErrorDetail(error)
+    atomicSaveResult.value = formatJson({ success: false, detail })
+    showMessage(`生成标准控件失败: ${detail}`, 'error')
   }
 }
 
@@ -1408,6 +2306,32 @@ const getTemplateScopedProfileName = () => {
     return base
   }
   return `${base}_${selectedTemplateType.value}`
+}
+
+const loadAtomicProfileId = () => {
+  try {
+    const raw = localStorage.getItem(ATOMIC_PROFILE_ID_KEY) || localStorage.getItem(SHARED_PROFILE_ID_KEY)
+    if (!raw) return
+    const parsed = Number(raw)
+    if (parsed > 0) {
+      atomicProfileId.value = parsed
+    }
+  } catch {
+  }
+}
+
+const persistAtomicProfileId = () => {
+  try {
+    const profileId = Number(atomicProfileId.value || 0)
+    if (profileId > 0) {
+      localStorage.setItem(ATOMIC_PROFILE_ID_KEY, String(profileId))
+      localStorage.setItem(SHARED_PROFILE_ID_KEY, String(profileId))
+    } else {
+      localStorage.removeItem(ATOMIC_PROFILE_ID_KEY)
+      localStorage.removeItem(SHARED_PROFILE_ID_KEY)
+    }
+  } catch {
+  }
 }
 
 const persistCalibratedControls = () => {
@@ -1458,33 +2382,6 @@ const handlePreviewImageLoad = (event) => {
   previewRenderedWidth.value = Number(img.clientWidth || 0)
   previewNaturalWidth.value = Number(img.naturalWidth || 0)
   previewNaturalHeight.value = Number(img.naturalHeight || 0)
-}
-
-const buildWechatOperationPackage = () => {
-  const payload = {
-    operation: 'wechat_send_message',
-    profile_name: scanProfileName.value,
-    params: {
-      contact: String(sopPackageParams.value.contact || '').trim(),
-      schedule_time: String(sopPackageParams.value.scheduleTime || '').trim(),
-      content: String(sopPackageParams.value.content || '').trim(),
-      humanized: !!sopPackageParams.value.humanized,
-    },
-    controls: (calibratedControls.value || []).map((item) => ({
-      serial_no: item.serial_no,
-      region_id: item.region_id,
-      name: item.name,
-      control_type: item.control_type,
-      ui_scene: item.ui_scene,
-      function: item.function,
-      needs_rescan_after_click: !!item.needs_rescan_after_click,
-      bounds: item.bounds,
-    })),
-    generated_at: new Date().toISOString(),
-  }
-
-  sopPackPreview.value = JSON.stringify(payload, null, 2)
-  showMessage('已生成微信操作打包JSON，可用于后续SOP调用', 'success')
 }
 
 const buildCalibratedRegionId = (serialNo) => `atspi_${String(serialNo).padStart(4, '0')}`
@@ -1633,26 +2530,94 @@ const syncCalibratedControlsToAnnotationRows = () => {
     return
   }
 
-  scanAnnotationRows.value = calibratedControls.value.map((item) => ({
-    enabled: true,
-    region_id: item.region_id,
-    name: item.name,
-    function: item.function,
-    clickable: item.clickable !== false,
-    needs_rescan_after_click: !!item.needs_rescan_after_click,
-    control_type: item.control_type || 'other',
-    confidence: Number(item.confidence || 0.9),
-    ui_scene: item.ui_scene || '',
-    serial_no: Number(item.serial_no || 0),
-    bounds: {
-      x: Number(item.bounds?.x || 0),
-      y: Number(item.bounds?.y || 0),
-      width: Number(item.bounds?.width || 0),
-      height: Number(item.bounds?.height || 0),
-    },
-  }))
+  const merged = new Map()
+  for (const row of (scanAnnotationRows.value || [])) {
+    const regionId = String(row?.region_id || '').trim()
+    if (!regionId) continue
+    merged.set(regionId, { ...row })
+  }
+
+  for (const item of calibratedControls.value) {
+    const regionId = String(item?.region_id || '').trim()
+    if (!regionId) continue
+    merged.set(regionId, {
+      enabled: true,
+      region_id: regionId,
+      name: item.name,
+      function: item.function,
+      clickable: item.clickable !== false,
+      needs_rescan_after_click: !!item.needs_rescan_after_click,
+      control_type: item.control_type || 'other',
+      confidence: Number(item.confidence || 0.9),
+      ui_scene: item.ui_scene || '',
+      serial_no: Number(item.serial_no || 0),
+      source_label: 'AT-SPI校准',
+      bounds: {
+        x: Number(item.bounds?.x || 0),
+        y: Number(item.bounds?.y || 0),
+        width: Number(item.bounds?.width || 0),
+        height: Number(item.bounds?.height || 0),
+      },
+    })
+  }
+
+  scanAnnotationRows.value = Array.from(merged.values())
   generateAnnotationJsonFromRows()
-  showMessage(`已同步 ${scanAnnotationRows.value.length} 个校准控件到标注JSON`, 'success')
+  showMessage(`已同步AT-SPI校准到构建标注行，当前共 ${scanAnnotationRows.value.length} 条`, 'success')
+}
+
+const toCalibratedControlRow = (item, index) => {
+  const bounds = item?.bounds || {}
+  const serialNo = Number(item?.serial_no || 0) > 0 ? Number(item.serial_no) : (index + 1)
+  const regionId = String(item?.region_id || '').trim() || buildCalibratedRegionId(serialNo)
+  return {
+    serial_no: serialNo,
+    region_id: regionId,
+    name: String(item?.name || regionId || `control_${serialNo}`).trim(),
+    control_type: String(item?.control_type || 'other').trim() || 'other',
+    ui_scene: String(item?.ui_scene || '').trim(),
+    function: String(item?.function || 'unknown_action').trim(),
+    clickable: item?.clickable !== false,
+    needs_rescan_after_click: !!item?.needs_rescan_after_click,
+    confidence: Number(item?.confidence || 0.9),
+    source: String(item?.source_kind || item?.source || 'integrated').trim(),
+    role: String(item?.role || item?.control_type || '').trim(),
+    path: String(item?.path || '').trim(),
+    text: String(item?.text || item?.name || '').trim(),
+    bounds: {
+      x: Number(bounds.x || 0),
+      y: Number(bounds.y || 0),
+      width: Number(bounds.width || 0),
+      height: Number(bounds.height || 0),
+    },
+  }
+}
+
+const applyIntegratedRowsToCalibratedControls = () => {
+  const rows = integratedControlRows.value || []
+  if (!rows.length) {
+    showMessage('暂无整合结果可应用，请先完成预览与冲突选择', 'error')
+    return
+  }
+
+  const normalized = rows
+    .map((item, index) => toCalibratedControlRow(item, index))
+    .filter((item) => Number(item?.bounds?.width || 0) > 0 && Number(item?.bounds?.height || 0) > 0)
+
+  if (!normalized.length) {
+    showMessage('整合结果没有有效坐标，无法应用', 'error')
+    return
+  }
+
+  calibratedControls.value = normalized.sort((a, b) => Number(a.serial_no || 0) - Number(b.serial_no || 0))
+  persistCalibratedControls()
+
+  const currentRegionId = String(atomicSelectedRegionId.value || '').trim()
+  if (currentRegionId && !calibratedControls.value.find((item) => String(item.region_id || '').trim() === currentRegionId)) {
+    atomicSelectedRegionId.value = ''
+  }
+
+  showMessage(`已应用整合结果，共 ${calibratedControls.value.length} 条校准控件`, 'success')
 }
 
 const getWeChatWindowPreset = () => {
@@ -2107,7 +3072,7 @@ const generateAnnotationJsonFromRows = () => {
     }))
 
   annotationJsonText.value = JSON.stringify(rows, null, 2)
-  showMessage(`已生成标注JSON，共 ${rows.length} 条`, 'success')
+  showMessage(`已生成构建输入JSON，共 ${rows.length} 条`, 'success')
 }
 
 const runBuildProfileFromRows = async () => {
@@ -2355,7 +3320,7 @@ const runBuildProfile = async () => {
     await refreshScanProfiles()
     showMessage('配置构建完成，已生成标注确认图', 'success')
   } catch (error) {
-    showMessage('构建配置失败，请检查标注JSON格式: ' + error.message, 'error')
+    showMessage('构建配置失败，请检查构建输入JSON格式: ' + error.message, 'error')
   }
 }
 
@@ -2938,6 +3903,7 @@ const fetchATSPIControlTreeSnapshot = async (autoActivate = false, applyFilters 
       saveWeChatWindowPreset(true)
       await ensureWeChatWindowLockedBeforeActivate()
       await axios.post('/api/v1/layout/wechat/activate')
+      await new Promise((resolve) => setTimeout(resolve, 1200))
     }
     const roleFilter = applyFilters ? atspiRoleFilter.value : ''
     const nameFilter = applyFilters ? atspiNameFilter.value : ''
@@ -2983,7 +3949,7 @@ const fetchATSPIControlTreeSnapshot = async (autoActivate = false, applyFilters 
       const managerUiNodes = sourceStatus?.manager_get_ui_elements?.nodes ?? '-'
       const engineUiNodes = sourceStatus?.engine_get_ui_elements?.nodes ?? '-'
       const engineTraverseNodes = sourceStatus?.engine_traverse_control_tree?.nodes ?? '-'
-      atspiSnapshotSummary.value = `快照模式: ${applyFilters ? '按过滤条件' : '原始无过滤'}\n返回节点: ${response.data.count}\n原始模式: ${response.data.filters?.raw_mode || '-'}\n树尝试: ${response.data.filters?.tree_attempted ? '是' : '否'} / 树节点: ${response.data.filters?.tree_nodes_count ?? '-'}\n刷新: ${refresh.enabled ? '开启' : '关闭'} / 轮次=${refresh.refresh_rounds ?? '-'} / 最优轮次=${refresh.best_round ?? '-'} / 最优节点=${refresh.best_nodes ?? '-'} / 可定位=${refresh.best_positioned_nodes ?? '-'}\n数据源节点: tree=${treeSourceNodes}, control=${controlSourceNodes}, manager_ui=${managerUiNodes}, engine_ui=${engineUiNodes}, engine_traverse=${engineTraverseNodes}\n过滤条件: role=${response.data.filters?.role_filter || '-'}, name=${response.data.filters?.name_filter || '-'}\n自动激活: ${response.data.activated ? '是' : '否'}\n导出文件: ${response.data.export_file || '-'}`
+      atspiSnapshotSummary.value = `快照模式: ${applyFilters ? '按过滤条件' : '原始无过滤'}\n返回节点: ${response.data.count}\n原始模式: ${response.data.filters?.raw_mode || '-'}\n树尝试: ${response.data.filters?.tree_attempted ? '是' : '否'} / 树节点: ${response.data.filters?.tree_nodes_count ?? '-'}\n刷新: ${refresh.enabled ? '开启' : '关闭'} / 轮次=${refresh.refresh_rounds ?? '-'} / 最优轮次=${refresh.best_round ?? '-'} / 最优节点=${refresh.best_nodes ?? '-'} / 可定位=${refresh.best_positioned_nodes ?? '-'}\n数据源节点: tree=${treeSourceNodes}, control=${controlSourceNodes}, manager_ui=${managerUiNodes}, engine_ui=${engineUiNodes}, engine_traverse=${engineTraverseNodes}\n过滤条件: role=${response.data.filters?.role_filter || '-'}, name=${response.data.filters?.name_filter || '-'}, max_nodes=${response.data.filters?.max_nodes ?? '-'}, max_depth=${response.data.filters?.max_depth ?? '-'}\n自动激活: ${response.data.activated ? '是' : '否'}\n导出文件: ${response.data.export_file || '-'}`
       showMessage(response.data.message || 'AT-SPI树快照成功', 'success')
     } else {
       atspiSnapshotNodes.value = []
@@ -3277,10 +4243,39 @@ onMounted(async () => {
   scanLockY.value = preset.y
   loadSetupLockState()
   loadCalibratedControls()
+  loadAtomicProfileId()
+  loadAtomicPipelineConfig(true)
+  window.addEventListener('atomic-pipeline-config-ready', handleAtomicPipelineConfigReady)
+  if (Number(atomicProfileId.value || 0) > 0) {
+    await loadAtomicControlLibrary()
+  }
   await refreshScanProfiles()
+
+  watch(activeGroup, (group) => {
+    if (group === 'atomicControls' && hasPendingIntegratedSync.value) {
+      showMessage('检测到第5步整合结果尚未应用，请先回到第5步点击“应用整合结果到已校准控件”再继续。', 'warning')
+    }
+    if (group === 'atomicControls' && Number(atomicProfileId.value || 0) > 0) {
+      loadAtomicControlLibrary()
+    }
+  })
+
+  watch(atomicProfileId, (value, oldValue) => {
+    const now = Number(value || 0)
+    const prev = Number(oldValue || 0)
+    persistAtomicProfileId()
+    if (now > 0 && now !== prev) {
+      loadAtomicControlLibrary()
+    }
+    if (now <= 0) {
+      atomicLibraryItems.value = []
+      atomicLibraryLastLoadedAt.value = ''
+    }
+  })
 })
 
 onUnmounted(() => {
+  window.removeEventListener('atomic-pipeline-config-ready', handleAtomicPipelineConfigReady)
   stopManualScanPolling()
 })
 

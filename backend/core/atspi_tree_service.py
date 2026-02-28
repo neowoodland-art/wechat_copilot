@@ -246,6 +246,7 @@ def collect_best_snapshot(manager: Any, options: ATSPIQueryOptions) -> Dict[str,
 
 def build_snapshot_payload(manager: Any, options: ATSPIQueryOptions) -> Dict[str, Any]:
     role_kw = str(options.role_filter or "").strip().lower()
+    depth_limit = int(options.max_depth)
     snapshot_result = collect_best_snapshot(manager=manager, options=options)
     best_controls = list(snapshot_result["best_controls"])
     best_mode = str(snapshot_result["best_mode"])
@@ -268,6 +269,10 @@ def build_snapshot_payload(manager: Any, options: ATSPIQueryOptions) -> Dict[str
         role = str(row.get("role", "") or "")
         name = str(row.get("name", "") or "")
         text = str(row.get("text", "") or "")
+        depth = _to_int(row.get("depth", 0), 0)
+
+        if depth_limit >= 0 and depth > depth_limit:
+            continue
 
         if role_kw and role_kw not in role.lower():
             continue
@@ -301,7 +306,7 @@ def build_snapshot_payload(manager: Any, options: ATSPIQueryOptions) -> Dict[str
         node = {
             "node_id": f"node_{row['index']}",
             "index": row["index"],
-            "depth": row["depth"],
+            "depth": depth,
             "parent_index": row["parent_index"],
             "path": row["path"],
             "name": name,

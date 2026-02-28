@@ -3,8 +3,90 @@
 #include <chrono>
 #include <random>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <cctype>
+#include <cmath>
+#include <unordered_map>
 
 namespace wechat_rpa {
+
+namespace {
+
+std::string trim_copy(const std::string& input) {
+    size_t start = 0;
+    while (start < input.size() && std::isspace(static_cast<unsigned char>(input[start]))) {
+        ++start;
+    }
+    size_t end = input.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(input[end - 1]))) {
+        --end;
+    }
+    return input.substr(start, end - start);
+}
+
+std::string lower_copy(const std::string& input) {
+    std::string out = input;
+    std::transform(out.begin(), out.end(), out.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return out;
+}
+
+bool parse_bool_value(const std::string& value, bool fallback = false) {
+    std::string normalized = lower_copy(trim_copy(value));
+    if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on") {
+        return true;
+    }
+    if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off") {
+        return false;
+    }
+    return fallback;
+}
+
+int parse_int_value(const std::string& value, int fallback = -1) {
+    try {
+        return std::stoi(trim_copy(value));
+    } catch (...) {
+        return fallback;
+    }
+}
+
+double parse_double_value(const std::string& value, double fallback = -1.0) {
+    try {
+        return std::stod(trim_copy(value));
+    } catch (...) {
+        return fallback;
+    }
+}
+
+std::string bool_to_text(bool value) {
+    return value ? "1" : "0";
+}
+
+double clamp_ratio(double value) {
+    if (value < 0.0) {
+        return 0.0;
+    }
+    if (value > 1.0) {
+        return 1.0;
+    }
+    return value;
+}
+
+std::string ratio_to_text(double value) {
+    std::ostringstream oss;
+    oss.setf(std::ios::fixed);
+    oss.precision(4);
+    oss << clamp_ratio(value);
+    return oss.str();
+}
+
+std::string int_to_text(int value) {
+    return std::to_string(value);
+}
+
+} // namespace
 
 WeChatManager::WeChatManager() : initialized_(false) {
 }
@@ -200,69 +282,50 @@ cv::Mat WeChatManager::capture_hover_interface(int x, int y) {
 
 std::vector<Region> WeChatManager::scan_interface_by_mouse(bool* stop_flag) {
     std::vector<Region> all_elements;
-    
-    std::cout << "[DEBUG] 开始扫描界面元素..." << std::endl;
-    
-    // 1. 截取基础界面
-    std::cout << "[DEBUG] 截取基础界面..." << std::endl;
-    cv::Mat base_image = capture_base_interface();
-    std::cout << "[DEBUG] 基础界面截图完成，尺寸: " << base_image.cols << "x" << base_image.rows << std::endl;
-    
-    // 2. 在界面上移动鼠标，扫描变化
-    std::cout << "[DEBUG] 获取窗口信息..." << std::endl;
-    WindowInfo window = get_wechat_window();
-    std::cout << "[DEBUG] 窗口信息: 位置(" << window.x << "," << window.y << ") 大小:" << window.width << "x" << window.height << std::endl;
-    
-    // 从左到右，从上到下扫描
-    // 注意：x和y是相对于窗口的坐标，需要转换为屏幕绝对坐标
-    for (int y = 20; y < window.height - 20 && (stop_flag == nullptr || !(*stop_flag)); y += 30) {
-        for (int x = 20; x < window.width - 20 && (stop_flag == nullptr || !(*stop_flag)); x += 30) {
-            // 转换为屏幕绝对坐标
-            int screen_x = window.x + x;
-            int screen_y = window.y + y;
-            
-            // 移动鼠标到屏幕绝对坐标
-            std::string result = window_manager_.execute_mouse_command(screen_x, screen_y);
-            
-            // 检查命令是否成功执行
-            if (result.empty()) {
-                // 命令执行失败，可能是权限问题
-                std::cout << "[DEBUG] 鼠标移动命令执行失败，可能是权限问题" << std::endl;
+    if (stop_flag != nullptr && *stop_flag) {
+        return all_elements;
+    }
+
+    std::map<std::string, std::string> filters;
+    filters["require_showing"] = "true";
+    filters["require_visible"] = "true";
+    filters["require_non_zero_rect"] = "true";
+    auto nodes = query_atomic_controls(filters, 2500, 20);
+
+    for (const auto& node : nodes) {
+        Region region;
+        auto get = [&node](const std::string& key) -> int {
+            auto it = node.find(key);
+            if (it == node.end()) {
+                return 0;
             }
-            
-            // 截取悬停图像
-            cv::Mat hover_image = capture_full_window();
-            
-            // 检测变化
-            std::vector<Region> elements = image_processor_.find_interactive_elements(base_image, hover_image);
-            
-            // 添加到总列表
-            for (const auto& elem : elements) {
-                // 检查是否已存在
-                bool exists = false;
-                for (const auto& existing : all_elements) {
-                    if (abs(existing.x - elem.x) < 10 && 
-                        abs(existing.y - elem.y) < 10 &&
-                        abs(existing.width - elem.width) < 10 &&
-                        abs(existing.height - elem.height) < 10) {
-                        exists = true;
-                        break;
-                    }
-                }
-                
-                if (!exists) {
-                    all_elements.push_back(elem);
-                }
+            return parse_int_value(it->second, 0);
+        };
+        region.x = get("x");
+        region.y = get("y");
+        region.width = get("width");
+        region.height = get("height");
+
+        if (region.width <= 0 || region.height <= 0) {
+            continue;
+        }
+
+        bool exists = false;
+        for (const auto& existing : all_elements) {
+            if (std::abs(existing.x - region.x) < 4 &&
+                std::abs(existing.y - region.y) < 4 &&
+                std::abs(existing.width - region.width) < 4 &&
+                std::abs(existing.height - region.height) < 4) {
+                exists = true;
+                break;
             }
-            
-            // 更新基础图像
-            base_image = hover_image.clone();
-            
-            // 短暂延迟
-            window_manager_.usleep(100000); // 100ms
+        }
+
+        if (!exists) {
+            all_elements.push_back(region);
         }
     }
-    
+
     return all_elements;
 }
 
@@ -425,6 +488,576 @@ OCRAEngine& WeChatManager::get_ocr_engine() {
 
 bool WeChatManager::is_initialized() const {
     return initialized_;
+}
+
+ATSPIQuery WeChatManager::build_query_from_filters(const std::map<std::string, std::string>& filters) const {
+    ATSPIQuery query;
+
+    auto get = [&filters](const std::string& key) -> std::string {
+        auto it = filters.find(key);
+        return it == filters.end() ? "" : trim_copy(it->second);
+    };
+
+    query.role_equals = get("role_equals");
+    query.role_contains = get("role_contains");
+    query.name_contains = get("name_contains");
+    query.text_contains = get("text_contains");
+    query.parent_role_equals = get("parent_role_equals");
+    query.path_contains = get("path_contains");
+
+    query.expected_depth = parse_int_value(get("expected_depth"), -1);
+    query.min_depth = parse_int_value(get("min_depth"), -1);
+    query.max_depth = parse_int_value(get("max_depth"), -1);
+
+    query.require_visible = parse_bool_value(get("require_visible"), false);
+    query.require_showing = parse_bool_value(get("require_showing"), false);
+    query.require_editable = parse_bool_value(get("require_editable"), false);
+    query.require_focusable = parse_bool_value(get("require_focusable"), false);
+    query.require_sensitive = parse_bool_value(get("require_sensitive"), false);
+    query.require_non_empty_name = parse_bool_value(get("require_non_empty_name"), false);
+    query.require_non_empty_text = parse_bool_value(get("require_non_empty_text"), false);
+    query.require_non_zero_rect = parse_bool_value(get("require_non_zero_rect"), false);
+
+    query.min_x_ratio = parse_double_value(get("min_x_ratio"), -1.0);
+    query.max_x_ratio = parse_double_value(get("max_x_ratio"), -1.0);
+    query.min_y_ratio = parse_double_value(get("min_y_ratio"), -1.0);
+    query.max_y_ratio = parse_double_value(get("max_y_ratio"), -1.0);
+
+    return query;
+}
+
+std::vector<std::map<std::string, std::string>> WeChatManager::serialize_nodes(const std::vector<ATSPINodeInfo>& nodes) const {
+    std::vector<std::map<std::string, std::string>> result;
+    result.reserve(nodes.size());
+
+    for (const auto& node : nodes) {
+        std::map<std::string, std::string> item;
+        item["index"] = std::to_string(node.index);
+        item["depth"] = std::to_string(node.depth);
+        item["parent_index"] = std::to_string(node.parent_index);
+        item["sibling_index"] = std::to_string(node.sibling_index);
+        item["path"] = node.path;
+        item["parent_path"] = node.parent_path;
+        item["name"] = node.name;
+        item["role"] = node.role;
+        item["text"] = node.text;
+        item["parent_role"] = node.parent_role;
+        item["x"] = std::to_string(node.region.x);
+        item["y"] = std::to_string(node.region.y);
+        item["width"] = std::to_string(node.region.width);
+        item["height"] = std::to_string(node.region.height);
+        item["visible"] = bool_to_text(node.visible);
+        item["showing"] = bool_to_text(node.showing);
+        item["editable"] = bool_to_text(node.editable);
+        item["focusable"] = bool_to_text(node.focusable);
+        item["sensitive"] = bool_to_text(node.sensitive);
+        result.push_back(std::move(item));
+    }
+
+    return result;
+}
+
+std::map<std::string, std::map<std::string, std::string>> WeChatManager::load_atomic_profiles(const std::string& file_path) const {
+    std::map<std::string, std::map<std::string, std::string>> profiles;
+    std::ifstream infile(file_path);
+    if (!infile.is_open()) {
+        return profiles;
+    }
+
+    std::string line;
+    std::string current_profile;
+    while (std::getline(infile, line)) {
+        line = trim_copy(line);
+        if (line.empty() || line[0] == '#' || line[0] == ';') {
+            continue;
+        }
+        if (line.size() > 2 && line.front() == '[' && line.back() == ']') {
+            current_profile = trim_copy(line.substr(1, line.size() - 2));
+            profiles[current_profile] = {};
+            continue;
+        }
+        size_t eq = line.find('=');
+        if (eq == std::string::npos || current_profile.empty()) {
+            continue;
+        }
+        std::string key = trim_copy(line.substr(0, eq));
+        std::string value = trim_copy(line.substr(eq + 1));
+        profiles[current_profile][key] = value;
+    }
+
+    return profiles;
+}
+
+std::map<std::string, std::string> WeChatManager::get_atomic_profile_filters(const std::string& profile_name) const {
+    static const std::vector<std::string> candidates = {
+        "cpp_rpa/config/atspi_atomic_profiles.ini",
+        "config/atspi_atomic_profiles.ini"
+    };
+
+    for (const auto& path : candidates) {
+        auto profiles = load_atomic_profiles(path);
+        auto it = profiles.find(profile_name);
+        if (it != profiles.end()) {
+            return it->second;
+        }
+    }
+
+    return {};
+}
+
+std::vector<std::map<std::string, std::string>> WeChatManager::query_atomic_controls(
+    const std::map<std::string, std::string>& filters,
+    int max_nodes,
+    int max_depth
+) {
+    std::vector<std::map<std::string, std::string>> empty;
+    if (!atspi_engine_.initialize()) {
+        return empty;
+    }
+
+    AtspiAccessible* app = atspi_engine_.get_wechat_application();
+    if (!app) {
+        return empty;
+    }
+
+    ATSPIQuery query = build_query_from_filters(filters);
+    auto nodes = atspi_engine_.query_nodes(app, query, std::max(1, max_nodes), max_depth);
+
+#ifdef HAVE_ATSPI
+    g_object_unref(app);
+#endif
+
+    return serialize_nodes(nodes);
+}
+
+std::vector<std::map<std::string, std::string>> WeChatManager::get_atomic_container_by_profile(
+    const std::string& profile_name,
+    const std::string& group_by,
+    int max_nodes,
+    int max_depth
+) {
+    std::vector<std::map<std::string, std::string>> flat;
+    auto filters = get_atomic_profile_filters(profile_name);
+    if (filters.empty()) {
+        return flat;
+    }
+
+    if (!atspi_engine_.initialize()) {
+        return flat;
+    }
+
+    AtspiAccessible* app = atspi_engine_.get_wechat_application();
+    if (!app) {
+        return flat;
+    }
+
+    ATSPIQuery query = build_query_from_filters(filters);
+    auto containers = atspi_engine_.build_atomic_containers(
+        app,
+        query,
+        group_by,
+        std::max(1, max_nodes),
+        max_depth
+    );
+
+#ifdef HAVE_ATSPI
+    g_object_unref(app);
+#endif
+
+    for (size_t ci = 0; ci < containers.size(); ++ci) {
+        for (size_t ni = 0; ni < containers[ci].items.size(); ++ni) {
+            auto item = serialize_nodes({containers[ci].items[ni]});
+            if (item.empty()) {
+                continue;
+            }
+            item[0]["container_key"] = containers[ci].key;
+            item[0]["container_index"] = std::to_string(ci);
+            item[0]["item_index"] = std::to_string(ni);
+            item[0]["profile"] = profile_name;
+            flat.push_back(std::move(item[0]));
+        }
+    }
+
+    return flat;
+}
+
+std::vector<std::string> WeChatManager::list_atomic_profiles() {
+    std::vector<std::string> names;
+    auto profiles = load_atomic_profiles("cpp_rpa/config/atspi_atomic_profiles.ini");
+    if (profiles.empty()) {
+        profiles = load_atomic_profiles("config/atspi_atomic_profiles.ini");
+    }
+    names.reserve(profiles.size());
+    for (const auto& kv : profiles) {
+        names.push_back(kv.first);
+    }
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
+std::map<std::string, std::string> WeChatManager::refresh_atomic_profile(
+    const std::string& profile_name,
+    int max_nodes,
+    int max_depth
+) {
+    std::map<std::string, std::string> recommended;
+    auto filters = get_atomic_profile_filters(profile_name);
+    if (filters.empty()) {
+        return recommended;
+    }
+
+    auto nodes = query_atomic_controls(filters, max_nodes, max_depth);
+    if (nodes.empty()) {
+        auto relaxed = filters;
+        relaxed.erase("expected_depth");
+        relaxed.erase("min_depth");
+        relaxed.erase("max_depth");
+        nodes = query_atomic_controls(relaxed, max_nodes, max_depth);
+    }
+    if (nodes.empty()) {
+        return recommended;
+    }
+
+    WindowInfo window = get_wechat_window();
+    const int window_w = std::max(1, window.width);
+    const int window_h = std::max(1, window.height);
+
+    int min_depth = 999;
+    int max_depth_value = -1;
+    std::map<int, int> depth_count;
+    std::map<std::string, int> role_count;
+
+    double min_x = 1.0;
+    double max_x = 0.0;
+    double min_y = 1.0;
+    double max_y = 0.0;
+
+    for (const auto& node : nodes) {
+        int depth = parse_int_value(node.count("depth") ? node.at("depth") : "-1", -1);
+        if (depth >= 0) {
+            min_depth = std::min(min_depth, depth);
+            max_depth_value = std::max(max_depth_value, depth);
+            depth_count[depth] += 1;
+        }
+
+        std::string role = node.count("role") ? trim_copy(node.at("role")) : "";
+        if (!role.empty()) {
+            role_count[role] += 1;
+        }
+
+        int x = parse_int_value(node.count("x") ? node.at("x") : "0", 0);
+        int y = parse_int_value(node.count("y") ? node.at("y") : "0", 0);
+
+        double x_ratio = static_cast<double>(x - window.x) / window_w;
+        double y_ratio = static_cast<double>(y - window.y) / window_h;
+        min_x = std::min(min_x, clamp_ratio(x_ratio));
+        max_x = std::max(max_x, clamp_ratio(x_ratio));
+        min_y = std::min(min_y, clamp_ratio(y_ratio));
+        max_y = std::max(max_y, clamp_ratio(y_ratio));
+    }
+
+    int best_depth = -1;
+    int best_depth_count = -1;
+    for (const auto& kv : depth_count) {
+        if (kv.second > best_depth_count) {
+            best_depth = kv.first;
+            best_depth_count = kv.second;
+        }
+    }
+
+    std::string best_role;
+    int best_role_count = -1;
+    for (const auto& kv : role_count) {
+        if (kv.second > best_role_count) {
+            best_role = kv.first;
+            best_role_count = kv.second;
+        }
+    }
+
+    if (!best_role.empty()) {
+        recommended["role_equals"] = best_role;
+    }
+    if (best_depth >= 0) {
+        recommended["expected_depth"] = int_to_text(best_depth);
+    }
+    if (min_depth <= max_depth_value && min_depth >= 0) {
+        recommended["min_depth"] = int_to_text(min_depth);
+        recommended["max_depth"] = int_to_text(max_depth_value);
+    }
+
+    const double padding = 0.03;
+    recommended["min_x_ratio"] = ratio_to_text(std::max(0.0, min_x - padding));
+    recommended["max_x_ratio"] = ratio_to_text(std::min(1.0, max_x + padding));
+    recommended["min_y_ratio"] = ratio_to_text(std::max(0.0, min_y - padding));
+    recommended["max_y_ratio"] = ratio_to_text(std::min(1.0, max_y + padding));
+
+    recommended["require_showing"] = "true";
+    recommended["require_visible"] = "true";
+    recommended["require_non_zero_rect"] = "true";
+    recommended["sample_count"] = std::to_string(nodes.size());
+    recommended["profile_name"] = profile_name;
+
+    return recommended;
+}
+
+std::vector<std::map<std::string, std::string>> WeChatManager::find_chat_atomic_groups(
+    int max_nodes,
+    int max_depth
+) {
+    std::map<std::string, std::string> filters;
+    filters["role_contains"] = "list item";
+    filters["require_showing"] = "true";
+    filters["require_visible"] = "true";
+    filters["require_non_zero_rect"] = "true";
+    filters["min_x_ratio"] = "0.30";
+    filters["max_x_ratio"] = "1.0";
+    filters["min_y_ratio"] = "0.05";
+    filters["max_y_ratio"] = "0.90";
+
+    auto nodes = query_atomic_controls(filters, max_nodes, max_depth);
+    std::unordered_map<std::string, std::vector<std::map<std::string, std::string>>> grouped;
+    for (const auto& node : nodes) {
+        std::string key = "root";
+        auto it = node.find("parent_path");
+        if (it != node.end() && !it->second.empty()) {
+            key = it->second;
+        }
+        grouped[key].push_back(node);
+    }
+
+    std::vector<std::pair<std::string, std::vector<std::map<std::string, std::string>>>> containers;
+    containers.reserve(grouped.size());
+    for (auto& kv : grouped) {
+        auto& items = kv.second;
+        std::sort(items.begin(), items.end(), [](const auto& a, const auto& b) {
+            int da = parse_int_value(a.count("depth") ? a.at("depth") : "0", 0);
+            int db = parse_int_value(b.count("depth") ? b.at("depth") : "0", 0);
+            if (da != db) {
+                return da < db;
+            }
+            int sa = parse_int_value(a.count("sibling_index") ? a.at("sibling_index") : "0", 0);
+            int sb = parse_int_value(b.count("sibling_index") ? b.at("sibling_index") : "0", 0);
+            return sa < sb;
+        });
+        containers.push_back({kv.first, items});
+    }
+
+    std::sort(containers.begin(), containers.end(), [](const auto& a, const auto& b) {
+        return a.second.size() > b.second.size();
+    });
+
+    std::vector<std::map<std::string, std::string>> output;
+    size_t container_index = 0;
+    for (const auto& container : containers) {
+        for (size_t item_index = 0; item_index < container.second.size(); ++item_index) {
+            auto item = container.second[item_index];
+            item["container_key"] = container.first;
+            item["container_index"] = std::to_string(container_index);
+            item["item_index"] = std::to_string(item_index);
+            item["container_size"] = std::to_string(container.second.size());
+            item["container_type"] = "chat_messages";
+            output.push_back(std::move(item));
+        }
+        ++container_index;
+    }
+
+    return output;
+}
+
+std::vector<std::map<std::string, std::string>> WeChatManager::detect_popup_atomic_controls(
+    int max_nodes,
+    int max_depth
+) {
+    std::map<std::string, std::string> filters;
+    filters["role_contains"] = "menu item";
+    filters["require_showing"] = "true";
+    filters["require_visible"] = "true";
+    filters["require_non_zero_rect"] = "true";
+
+    auto nodes = query_atomic_controls(filters, max_nodes, max_depth);
+    if (nodes.empty()) {
+        filters["role_contains"] = "menu";
+        nodes = query_atomic_controls(filters, max_nodes, max_depth);
+    }
+
+    std::sort(nodes.begin(), nodes.end(), [](const auto& a, const auto& b) {
+        int ya = parse_int_value(a.count("y") ? a.at("y") : "0", 0);
+        int yb = parse_int_value(b.count("y") ? b.at("y") : "0", 0);
+        if (ya != yb) {
+            return ya < yb;
+        }
+        int xa = parse_int_value(a.count("x") ? a.at("x") : "0", 0);
+        int xb = parse_int_value(b.count("x") ? b.at("x") : "0", 0);
+        return xa < xb;
+    });
+
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        nodes[i]["popup_index"] = std::to_string(i);
+        nodes[i]["container_type"] = "popup";
+    }
+
+    return nodes;
+}
+
+std::map<std::string, std::string> WeChatManager::execute_atomic_action(
+    const std::map<std::string, std::string>& action_spec
+) {
+    auto started = std::chrono::steady_clock::now();
+
+    std::map<std::string, std::string> result;
+    result["success"] = "0";
+    result["error_code"] = "unknown";
+    result["used_strategy"] = "";
+    result["message"] = "执行失败";
+
+    auto get = [&action_spec](const std::string& key) -> std::string {
+        auto it = action_spec.find(key);
+        return it == action_spec.end() ? "" : trim_copy(it->second);
+    };
+
+    std::string action_type = lower_copy(get("action_type"));
+    if (action_type.empty()) {
+        action_type = "click";
+    }
+    std::string profile_name = get("profile_name");
+    std::string input_text = get("text");
+
+    result["action_type"] = action_type;
+    result["profile_name"] = profile_name;
+
+    if (profile_name.empty()) {
+        result["error_code"] = "profile_required";
+        result["message"] = "profile_name不能为空";
+        return result;
+    }
+
+    auto filters = get_atomic_profile_filters(profile_name);
+    if (filters.empty()) {
+        result["error_code"] = "profile_not_found";
+        result["message"] = "未找到原子控件配置";
+        return result;
+    }
+
+    int max_nodes = parse_int_value(get("max_nodes"), 1200);
+    if (max_nodes <= 0) {
+        max_nodes = 1200;
+    }
+
+    int max_depth = parse_int_value(get("max_depth"), parse_int_value(filters["max_depth"], -1));
+
+    auto nodes = query_atomic_controls(filters, max_nodes, max_depth);
+    result["matched_nodes"] = std::to_string(nodes.size());
+    if (nodes.empty()) {
+        result["error_code"] = "node_not_found";
+        result["message"] = "未匹配到原子控件节点";
+        return result;
+    }
+
+    WindowInfo window = get_wechat_window();
+    const auto& first = nodes.front();
+    auto get_value = [&first](const std::string& key) -> std::string {
+        auto it = first.find(key);
+        return it == first.end() ? "0" : it->second;
+    };
+
+    int width = parse_int_value(get_value("width"), 0);
+    int height = parse_int_value(get_value("height"), 0);
+    int abs_x = parse_int_value(get_value("x"), 0);
+    int abs_y = parse_int_value(get_value("y"), 0);
+
+    int rel_x = abs_x - window.x + width / 2;
+    int rel_y = abs_y - window.y + height / 2;
+
+    result["target_x"] = std::to_string(rel_x);
+    result["target_y"] = std::to_string(rel_y);
+    result["target_path"] = get_value("path");
+    result["target_role"] = get_value("role");
+    result["target_name"] = get_value("name");
+
+    bool clicked = false;
+    bool success = false;
+
+    if (action_type == "click" || action_type == "activate" || action_type == "input" || action_type == "input_text") {
+        int before_click_ms = parse_int_value(get("pre_click_delay_ms"), parse_int_value(filters["pre_click_delay_ms"], humanization_engine_.get_random_delay(80, 200)));
+        int after_click_ms = parse_int_value(get("post_click_delay_ms"), parse_int_value(filters["post_click_delay_ms"], humanization_engine_.get_random_delay(120, 280)));
+
+        usleep(std::max(0, before_click_ms) * 1000);
+        clicked = humanized_click(rel_x, rel_y, 1);
+        usleep(std::max(0, after_click_ms) * 1000);
+        result["used_strategy"] = "humanized_click";
+
+        if (!clicked) {
+            result["error_code"] = "click_failed";
+            result["message"] = "点击原子控件失败";
+        }
+    }
+
+    if (action_type == "click" || action_type == "activate") {
+        success = clicked;
+        if (success) {
+            result["message"] = action_type == "activate" ? "激活原子控件成功" : "点击原子控件成功";
+            result["error_code"] = "";
+        }
+    } else if (action_type == "input" || action_type == "input_text") {
+        if (input_text.empty()) {
+            result["error_code"] = "text_required";
+            result["message"] = "输入动作缺少text";
+            success = false;
+        } else if (!clicked) {
+            success = false;
+        } else {
+            int before_input_ms = parse_int_value(get("pre_input_delay_ms"), parse_int_value(filters["pre_input_delay_ms"], humanization_engine_.get_random_delay(80, 180)));
+            int after_input_ms = parse_int_value(get("post_input_delay_ms"), parse_int_value(filters["post_input_delay_ms"], humanization_engine_.get_random_delay(100, 220)));
+
+            usleep(std::max(0, before_input_ms) * 1000);
+            success = humanized_input(input_text);
+            usleep(std::max(0, after_input_ms) * 1000);
+            result["used_strategy"] = "humanized_click_input";
+            if (!success) {
+                result["error_code"] = "input_failed";
+                result["message"] = "输入文本失败";
+            } else {
+                result["error_code"] = "";
+                result["message"] = "输入文本成功";
+            }
+        }
+    } else {
+        result["error_code"] = "unsupported_action";
+        result["message"] = "不支持的action_type";
+        success = false;
+    }
+
+    auto ended = std::chrono::steady_clock::now();
+    auto latency_ms = std::chrono::duration_cast<std::chrono::milliseconds>(ended - started).count();
+    result["latency_ms"] = std::to_string(latency_ms);
+    result["success"] = success ? "1" : "0";
+
+    return result;
+}
+
+bool WeChatManager::click_atomic_control(const std::string& profile_name) {
+    std::map<std::string, std::string> action_spec;
+    action_spec["action_type"] = "click";
+    action_spec["profile_name"] = profile_name;
+    auto result = execute_atomic_action(action_spec);
+    return result["success"] == "1";
+}
+
+bool WeChatManager::input_text_atomic_control(const std::string& profile_name, const std::string& text) {
+    std::map<std::string, std::string> action_spec;
+    action_spec["action_type"] = "input_text";
+    action_spec["profile_name"] = profile_name;
+    action_spec["text"] = text;
+    auto result = execute_atomic_action(action_spec);
+    return result["success"] == "1";
+}
+
+bool WeChatManager::activate_atomic_control(const std::string& profile_name) {
+    std::map<std::string, std::string> action_spec;
+    action_spec["action_type"] = "activate";
+    action_spec["profile_name"] = profile_name;
+    auto result = execute_atomic_action(action_spec);
+    return result["success"] == "1";
 }
 
 bool WeChatManager::click_control_by_atspi(const std::string& control_name) {

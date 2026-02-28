@@ -14,6 +14,8 @@ import Customers from './views/Customers.vue'
 import Settings from './views/Settings.vue'
 import ATSPIAnalysis from './views/ATSPIAnalysis.vue'
 import LLMCoreDebug from './views/LLMCoreDebug.vue'
+import WeChatOperationPackages from './views/WeChatOperationPackages.vue'
+import AtomicContainerSettings from './views/AtomicContainerSettings.vue'
 
 // 创建路由
 const router = createRouter({
@@ -78,6 +80,16 @@ const router = createRouter({
       path: '/llm-core-debug',
       name: 'LLMCoreDebug',
       component: LLMCoreDebug
+    },
+    {
+      path: '/wechat-operation-packages',
+      name: 'WeChatOperationPackages',
+      component: WeChatOperationPackages
+    },
+    {
+      path: '/atomic-container-settings',
+      name: 'AtomicContainerSettings',
+      component: AtomicContainerSettings
     }
   ]
 })

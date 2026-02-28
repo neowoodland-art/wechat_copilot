@@ -20,18 +20,19 @@ class LocalLLMClient(BaseLLMClient):
         
     async def call(self, text: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         try:
+            prompt_text = str(text or "")
+            if context:
+                prompt_text = f"上下文(JSON):\n{json.dumps(context, ensure_ascii=False)}\n\n用户请求:\n{prompt_text}"
+
             payload = {
                 "model": self.config.get('model', 'qwen2:0.5b'),
-                "prompt": text,
+                "prompt": prompt_text,
                 "stream": False,
                 "options": {
                     "temperature": self.config.get('temperature', 0.7),
                     "num_predict": self.config.get('max_tokens', 500)
                 }
             }
-            
-            if context:
-                payload["context"] = context
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(self.base_url, json=payload) as response:
@@ -55,6 +56,9 @@ class DoubaoLLMClient(BaseLLMClient):
         
     async def call(self, text: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         try:
+            if not self.api_key:
+                return {"response": "", "success": False, "error": "missing_doubao_api_key"}
+
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.api_key}"
@@ -93,6 +97,9 @@ class AlibabaLLMClient(BaseLLMClient):
         
     async def call(self, text: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         try:
+            if not self.api_key:
+                return {"response": "", "success": False, "error": "missing_alibaba_api_key"}
+
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.api_key}",

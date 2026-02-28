@@ -21,6 +21,11 @@ private:
     
     // 获取消息区域
     Region get_message_region(const WindowInfo& window) const;
+
+    ATSPIQuery build_query_from_filters(const std::map<std::string, std::string>& filters) const;
+    std::vector<std::map<std::string, std::string>> serialize_nodes(const std::vector<ATSPINodeInfo>& nodes) const;
+    std::map<std::string, std::map<std::string, std::string>> load_atomic_profiles(const std::string& file_path) const;
+    std::map<std::string, std::string> get_atomic_profile_filters(const std::string& profile_name) const;
     
 public:
     WeChatManager();
@@ -202,6 +207,45 @@ public:
      * @return 控件树节点列表（深度优先展开）
      */
     std::vector<std::map<std::string, std::string>> get_atspi_tree_snapshot(int max_nodes = 800, int max_depth = -1);
+
+    std::vector<std::map<std::string, std::string>> query_atomic_controls(
+        const std::map<std::string, std::string>& filters,
+        int max_nodes = 1600,
+        int max_depth = -1
+    );
+
+    std::vector<std::map<std::string, std::string>> get_atomic_container_by_profile(
+        const std::string& profile_name,
+        const std::string& group_by = "parent_path",
+        int max_nodes = 1800,
+        int max_depth = -1
+    );
+
+    std::vector<std::string> list_atomic_profiles();
+
+    std::map<std::string, std::string> refresh_atomic_profile(
+        const std::string& profile_name,
+        int max_nodes = 2200,
+        int max_depth = 24
+    );
+
+    std::vector<std::map<std::string, std::string>> find_chat_atomic_groups(
+        int max_nodes = 2200,
+        int max_depth = 24
+    );
+
+    std::vector<std::map<std::string, std::string>> detect_popup_atomic_controls(
+        int max_nodes = 1600,
+        int max_depth = 24
+    );
+
+    std::map<std::string, std::string> execute_atomic_action(
+        const std::map<std::string, std::string>& action_spec
+    );
+
+    bool click_atomic_control(const std::string& profile_name);
+    bool input_text_atomic_control(const std::string& profile_name, const std::string& text);
+    bool activate_atomic_control(const std::string& profile_name);
     
     /**
      * 拟人化点击

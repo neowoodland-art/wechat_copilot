@@ -194,3 +194,167 @@ class CRMScheduleConfig(SQLModel, table=True):
     run_summary_hour: int = Field(default=1)
     run_portrait_hour: int = Field(default=2)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WechatUIProfile(SQLModel, table=True):
+    __tablename__ = "wechat_ui_profile"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    profile_name: str = Field(index=True)
+    template_type: str = Field(default="chat", index=True)
+    window_type: str = Field(default="chat", index=True)
+    enabled: bool = Field(default=True)
+    window_x: int = Field(default=0)
+    window_y: int = Field(default=0)
+    window_width: int = Field(default=0)
+    window_height: int = Field(default=0)
+    version: str = Field(default="v1")
+    meta_json: str = Field(default="{}")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WechatUIRegion(SQLModel, table=True):
+    __tablename__ = "wechat_ui_region"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    profile_id: int = Field(index=True)
+    region_key: str = Field(index=True)
+    region_name: str = Field(default="")
+    enabled: bool = Field(default=True)
+    x: int = Field(default=0)
+    y: int = Field(default=0)
+    width: int = Field(default=0)
+    height: int = Field(default=0)
+    sort_order: int = Field(default=0)
+    meta_json: str = Field(default="{}")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WechatUIControlDefinition(SQLModel, table=True):
+    __tablename__ = "wechat_ui_control_definition"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    control_uid: str = Field(index=True)
+    profile_id: int = Field(index=True)
+    enabled: bool = Field(default=True)
+    region_key: str = Field(default="", index=True)
+    role: str = Field(default="", index=True)
+    control_type: str = Field(default="")
+    depth: int = Field(default=0)
+    depth_code: str = Field(default="00", index=True)
+    access_path: str = Field(default="")
+    path_numeric_code: str = Field(default="")
+    x: int = Field(default=0)
+    y: int = Field(default=0)
+    width: int = Field(default=0)
+    height: int = Field(default=0)
+    text: str = Field(default="")
+    window_type: str = Field(default="chat", index=True)
+    actions_json: str = Field(default="[]")
+    is_clickable: bool = Field(default=False)
+    has_post_click_change: bool = Field(default=False)
+    source_type: str = Field(default="merged", index=True)
+    source_ref_id: str = Field(default="")
+    confidence: float = Field(default=0.0)
+    meta_json: str = Field(default="{}")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WechatUIControlSnapshot(SQLModel, table=True):
+    __tablename__ = "wechat_ui_control_snapshot"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    profile_id: int = Field(index=True)
+    capture_batch_id: str = Field(default="", index=True)
+    source_type: str = Field(default="atspi", index=True)
+    region_key: str = Field(default="", index=True)
+    role: str = Field(default="")
+    depth: int = Field(default=0)
+    access_path: str = Field(default="")
+    path_numeric_code: str = Field(default="")
+    x: int = Field(default=0)
+    y: int = Field(default=0)
+    width: int = Field(default=0)
+    height: int = Field(default=0)
+    text: str = Field(default="")
+    ocr_text: str = Field(default="")
+    raw_json: str = Field(default="{}")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WechatOperationPackage(SQLModel, table=True):
+    __tablename__ = "wechat_operation_package"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    package_code: str = Field(index=True)
+    package_name: str = Field(default="")
+    enabled: bool = Field(default=True)
+    scene_type: str = Field(default="chat")
+    profile_id: Optional[int] = Field(default=None, index=True)
+    description: str = Field(default="")
+    version: str = Field(default="v1")
+    config_json: str = Field(default="{}")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WechatOperationAction(SQLModel, table=True):
+    __tablename__ = "wechat_operation_action"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    package_id: int = Field(index=True)
+    action_key: str = Field(index=True)
+    action_name: str = Field(default="")
+    action_type: str = Field(default="")
+    enabled: bool = Field(default=True)
+    step_order: int = Field(default=0)
+    control_uid: str = Field(default="", index=True)
+    api_route: str = Field(default="")
+    llm_scene: str = Field(default="")
+    db_hook: str = Field(default="")
+    params_json: str = Field(default="{}")
+    expected_json: str = Field(default="{}")
+    on_fail_action: str = Field(default="")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WechatOperationRunLog(SQLModel, table=True):
+    __tablename__ = "wechat_operation_run_log"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    package_id: Optional[int] = Field(default=None, index=True)
+    action_id: Optional[int] = Field(default=None, index=True)
+    run_id: str = Field(default="", index=True)
+    success: bool = Field(default=True)
+    request_json: str = Field(default="{}")
+    response_json: str = Field(default="{}")
+    error_message: str = Field(default="")
+    elapsed_ms: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class WechatChatRuntime(SQLModel, table=True):
+    __tablename__ = "wechat_chat_runtime"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: str = Field(default="", index=True)
+    chat_name: str = Field(default="", index=True)
+    msg_id: str = Field(default="", index=True)
+    msg_type: str = Field(default="text")
+    sender: str = Field(default="other")
+    content: str = Field(default="")
+    content_json: str = Field(default="{}")
+    acked: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class WechatListenState(SQLModel, table=True):
+    __tablename__ = "wechat_listen_state"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    listener_key: str = Field(default="default", index=True)
+    running: bool = Field(default=False)
+    chats_json: str = Field(default="[]")
+    last_msg_id: str = Field(default="")
+    last_poll_at: Optional[datetime] = Field(default=None)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, index=True)

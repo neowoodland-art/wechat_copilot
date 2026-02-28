@@ -8,7 +8,7 @@
         v-for="tab in tabs" 
         :key="tab.key" 
         :class="['tab', { active: activeTab === tab.key }]"
-        @click="activeTab = tab.key"
+        @click="switchTab(tab.key)"
       >
         {{ tab.title }}
       </div>
@@ -178,6 +178,74 @@
           </div>
         </div>
       </div>
+
+      <!-- RPA全局设置 -->
+      <div v-show="activeTab === 'rpa-global'" class="tab-content">
+        <div class="setting-group">
+          <h3>原子控件配置管理</h3>
+          <div class="setting-item">
+            <button class="btn btn-primary" :disabled="atomic.loading" @click="loadAtomicProfiles">刷新配置列表</button>
+            <span v-if="atomic.loading">加载中...</span>
+            <span v-else>共 {{ atomic.profiles.length }} 个配置</span>
+          </div>
+          <div class="setting-item">
+            <label>选择配置:</label>
+            <select v-model="atomic.selectedProfile" class="form-control atomic-select">
+              <option value="">请选择</option>
+              <option v-for="name in atomic.profiles" :key="name" :value="name">{{ name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>重建与发现</h3>
+          <div class="setting-item">
+            <label>max_nodes:</label>
+            <input v-model.number="atomic.maxNodes" type="number" min="100" max="20000" class="form-control" />
+            <label>max_depth:</label>
+            <input v-model.number="atomic.maxDepth" type="number" min="-1" max="64" class="form-control" />
+          </div>
+          <div class="setting-item">
+            <button class="btn btn-secondary" :disabled="atomic.loading || !atomic.selectedProfile" @click="refreshAtomicSuggestion">刷新重建建议</button>
+            <button class="btn btn-secondary" :disabled="atomic.loading" @click="discoverAtomicChats">发现聊天容器</button>
+            <button class="btn btn-secondary" :disabled="atomic.loading" @click="discoverAtomicPopup">发现弹窗控件</button>
+          </div>
+          <div class="result-box" v-if="atomic.suggestion">
+            <h4>重建建议</h4>
+            <pre>{{ formatJson(atomic.suggestion) }}</pre>
+          </div>
+          <div class="result-box" v-if="atomic.discoveryType">
+            <h4>{{ atomic.discoveryType }}（{{ atomic.discoveryItems.length }}项）</h4>
+            <pre>{{ formatJson(atomic.discoveryItems.slice(0, 20)) }}</pre>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h3>统一动作执行（C++）</h3>
+          <div class="setting-item">
+            <label>动作类型:</label>
+            <select v-model="atomic.actionType" class="form-control">
+              <option value="click">click</option>
+              <option value="activate">activate</option>
+              <option value="input_text">input_text</option>
+            </select>
+          </div>
+          <div class="setting-item" v-if="atomic.actionType === 'input_text'">
+            <label>输入文本:</label>
+            <input v-model="atomic.actionText" type="text" class="form-control atomic-input" placeholder="请输入要写入的文本" />
+          </div>
+          <div class="setting-item">
+            <button class="btn btn-info" :disabled="atomic.loading || !atomic.selectedProfile" @click="executeAtomic">执行原子动作</button>
+          </div>
+          <div class="result-box" v-if="atomic.execution">
+            <h4>执行结果</h4>
+            <pre>{{ formatJson(atomic.execution) }}</pre>
+          </div>
+          <div class="setting-item" v-if="atomic.message">
+            <strong>{{ atomic.message }}</strong>
+          </div>
+        </div>
+      </div>
     </div>
     
     <div class="settings-actions">
@@ -190,6 +258,13 @@
 
 <script setup>
 import { ref } from 'vue'
+import {
+  listAtomicProfiles,
+  refreshAtomicProfile,
+  discoverChatAtomicGroups,
+  discoverPopupAtomicControls,
+  executeAtomicAction
+} from '../api'
 
 const activeTab = ref('general')
 
@@ -197,8 +272,24 @@ const tabs = [
   { key: 'general', title: '通用配置' },
   { key: 'api-keys', title: 'API密钥' },
   { key: 'security', title: '安全设置' },
-  { key: 'monitoring', title: '系统监控' }
+  { key: 'monitoring', title: '系统监控' },
+  { key: 'rpa-global', title: 'RPA全局设置' }
 ]
+
+const atomic = ref({
+  loading: false,
+  profiles: [],
+  selectedProfile: '',
+  maxNodes: 2200,
+  maxDepth: 24,
+  suggestion: null,
+  discoveryType: '',
+  discoveryItems: [],
+  actionType: 'click',
+  actionText: '',
+  execution: null,
+  message: ''
+})
 
 const settings = ref({
   general: {
@@ -231,6 +322,121 @@ const aiProviders = [
 const saveSettings = () => {
   alert('设置已保存')
   console.log('保存设置:', settings.value)
+}
+
+const switchTab = async (tabKey) => {
+  activeTab.value = tabKey
+  if (tabKey === 'rpa-global' && !atomic.value.profiles.length) {
+    await loadAtomicProfiles()
+  }
+}
+
+const formatJson = (value) => {
+  try {
+    return JSON.stringify(value ?? {}, null, 2)
+  } catch {
+    return String(value ?? '')
+  }
+}
+
+const loadAtomicProfiles = async () => {
+  atomic.value.loading = true
+  atomic.value.message = ''
+  try {
+    const data = await listAtomicProfiles()
+    atomic.value.profiles = data?.profiles || []
+    if (!atomic.value.selectedProfile && atomic.value.profiles.length) {
+      atomic.value.selectedProfile = atomic.value.profiles[0]
+    }
+    atomic.value.message = `已加载 ${atomic.value.profiles.length} 个原子配置`
+  } catch (error) {
+    atomic.value.message = `加载失败: ${error?.response?.data?.detail || error.message}`
+  } finally {
+    atomic.value.loading = false
+  }
+}
+
+const refreshAtomicSuggestion = async () => {
+  if (!atomic.value.selectedProfile) {
+    atomic.value.message = '请先选择配置'
+    return
+  }
+  atomic.value.loading = true
+  atomic.value.message = ''
+  try {
+    const data = await refreshAtomicProfile({
+      profile_name: atomic.value.selectedProfile,
+      max_nodes: atomic.value.maxNodes,
+      max_depth: atomic.value.maxDepth
+    })
+    atomic.value.suggestion = data?.suggestion || null
+    atomic.value.message = data?.message || '已刷新建议'
+  } catch (error) {
+    atomic.value.message = `刷新建议失败: ${error?.response?.data?.detail || error.message}`
+  } finally {
+    atomic.value.loading = false
+  }
+}
+
+const discoverAtomicChats = async () => {
+  atomic.value.loading = true
+  atomic.value.message = ''
+  try {
+    const data = await discoverChatAtomicGroups({
+      max_nodes: atomic.value.maxNodes,
+      max_depth: atomic.value.maxDepth
+    })
+    atomic.value.discoveryType = '聊天原子容器'
+    atomic.value.discoveryItems = data?.items || []
+    atomic.value.message = `发现 ${atomic.value.discoveryItems.length} 个聊天原子项`
+  } catch (error) {
+    atomic.value.message = `发现聊天容器失败: ${error?.response?.data?.detail || error.message}`
+  } finally {
+    atomic.value.loading = false
+  }
+}
+
+const discoverAtomicPopup = async () => {
+  atomic.value.loading = true
+  atomic.value.message = ''
+  try {
+    const data = await discoverPopupAtomicControls({
+      max_nodes: atomic.value.maxNodes,
+      max_depth: atomic.value.maxDepth
+    })
+    atomic.value.discoveryType = '弹窗原子控件'
+    atomic.value.discoveryItems = data?.items || []
+    atomic.value.message = `发现 ${atomic.value.discoveryItems.length} 个弹窗原子项`
+  } catch (error) {
+    atomic.value.message = `发现弹窗控件失败: ${error?.response?.data?.detail || error.message}`
+  } finally {
+    atomic.value.loading = false
+  }
+}
+
+const executeAtomic = async () => {
+  if (!atomic.value.selectedProfile) {
+    atomic.value.message = '请先选择配置'
+    return
+  }
+  atomic.value.loading = true
+  atomic.value.message = ''
+  try {
+    const payload = {
+      action_type: atomic.value.actionType,
+      profile_name: atomic.value.selectedProfile,
+      text: atomic.value.actionType === 'input_text' ? atomic.value.actionText : '',
+      max_nodes: atomic.value.maxNodes,
+      max_depth: atomic.value.maxDepth
+    }
+    const data = await executeAtomicAction(payload)
+    atomic.value.execution = data?.execution || data
+    atomic.value.message = data?.message || '动作执行完成'
+  } catch (error) {
+    atomic.value.message = `执行失败: ${error?.response?.data?.detail || error.message}`
+  } finally {
+    atomic.value.loading = false
+  }
 }
 
 const resetSettings = () => {
@@ -457,5 +663,29 @@ const exportConfig = () => {
 
 .btn:hover {
   opacity: 0.9;
+}
+
+.atomic-select {
+  min-width: 320px;
+}
+
+.atomic-input {
+  min-width: 320px;
+}
+
+.result-box {
+  margin-top: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px;
+  background: #fafafa;
+  width: 100%;
+}
+
+.result-box pre {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 12px;
 }
 </style>

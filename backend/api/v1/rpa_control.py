@@ -3,7 +3,8 @@ import logging
 import sys
 import os
 from pydantic import Field, BaseModel, validator
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
+import re
 
 # 导入配置存储函数
 from .rpa_compatibility import _load_profile_store
@@ -101,6 +102,151 @@ class GenerateAnnotatedScreenshotRequest(BaseModel):
         if not value.strip():
             raise ValueError("配置名称不能为空或全为空格")
         return value
+
+
+class RefreshAtomicProfileRequest(BaseModel):
+    profile_name: str = Field(..., min_length=1, description="原子控件配置名称")
+    max_nodes: int = Field(2200, ge=100, le=20000, description="最大扫描节点数")
+    max_depth: int = Field(24, ge=-1, le=64, description="最大扫描深度，-1表示不限制")
+
+
+class DiscoverAtomicRequest(BaseModel):
+    max_nodes: int = Field(2200, ge=100, le=20000, description="最大扫描节点数")
+    max_depth: int = Field(24, ge=-1, le=64, description="最大扫描深度，-1表示不限制")
+
+
+class AtomicActionExecuteRequest(BaseModel):
+    action_type: str = Field("click", description="动作类型：click/activate/input_text")
+    profile_name: str = Field(..., min_length=1, description="原子控件配置名称")
+    text: str = Field("", description="input_text动作时输入文本")
+    max_nodes: int = Field(1200, ge=100, le=20000, description="最大扫描节点数")
+    max_depth: int = Field(-1, ge=-1, le=64, description="最大扫描深度")
+
+
+class AtomicQueryRequest(BaseModel):
+    role_equals: str = Field("", description="角色精确匹配")
+    role_contains: str = Field("", description="角色包含匹配")
+    name_contains: str = Field("", description="名称包含匹配")
+    text_contains: str = Field("", description="文本包含匹配")
+    parent_role_equals: str = Field("", description="父角色精确匹配")
+    path_contains: str = Field("", description="路径/编码包含匹配")
+    path_code_contains: str = Field("", description="路径编码包含匹配（别名）")
+    expected_depth: Optional[int] = Field(None, ge=0, le=64)
+    min_depth: Optional[int] = Field(None, ge=0, le=64)
+    max_depth: Optional[int] = Field(None, ge=0, le=64)
+    require_visible: bool = False
+    require_showing: bool = False
+    require_editable: bool = False
+    require_focusable: bool = False
+    require_sensitive: bool = False
+    require_non_empty_name: bool = False
+    require_non_empty_text: bool = False
+    require_non_empty_name_or_text: bool = False
+    require_non_zero_rect: bool = False
+    min_x_ratio: Optional[float] = Field(None, ge=0.0, le=1.0)
+    max_x_ratio: Optional[float] = Field(None, ge=0.0, le=1.0)
+    min_y_ratio: Optional[float] = Field(None, ge=0.0, le=1.0)
+    max_y_ratio: Optional[float] = Field(None, ge=0.0, le=1.0)
+    scan_max_nodes: int = Field(2400, ge=100, le=20000)
+    scan_max_depth: int = Field(24, ge=-1, le=64)
+    limit: int = Field(500, ge=1, le=5000)
+    sort_by: str = Field("position", description="position/depth/name")
+    sort_order: str = Field("asc", description="asc/desc")
+    parse_contact_unread: bool = Field(True, description="解析联系人名称与未读数")
+    include_chat_order: bool = Field(True, description="为聊天区域增加排序序号")
+
+
+def _build_atomic_query_filters(request: AtomicQueryRequest) -> Dict[str, str]:
+    filters: Dict[str, str] = {}
+
+    def put_text(key: str, value: str) -> None:
+        text = str(value or "").strip()
+        if text:
+            filters[key] = text
+
+    def put_bool(key: str, value: bool) -> None:
+        if bool(value):
+            filters[key] = "true"
+
+    def put_int(key: str, value: Optional[int]) -> None:
+        if value is not None:
+            filters[key] = str(int(value))
+
+    def put_float(key: str, value: Optional[float]) -> None:
+        if value is not None:
+            filters[key] = f"{float(value):.4f}"
+
+    put_text("role_equals", request.role_equals)
+    put_text("role_contains", request.role_contains)
+    put_text("name_contains", request.name_contains)
+    put_text("text_contains", request.text_contains)
+    put_text("parent_role_equals", request.parent_role_equals)
+
+    merged_path = str(request.path_contains or "").strip() or str(request.path_code_contains or "").strip()
+    put_text("path_contains", merged_path)
+
+    put_int("expected_depth", request.expected_depth)
+    put_int("min_depth", request.min_depth)
+    put_int("max_depth", request.max_depth)
+
+    put_bool("require_visible", request.require_visible)
+    put_bool("require_showing", request.require_showing)
+    put_bool("require_editable", request.require_editable)
+    put_bool("require_focusable", request.require_focusable)
+    put_bool("require_sensitive", request.require_sensitive)
+    put_bool("require_non_empty_name", request.require_non_empty_name)
+    put_bool("require_non_empty_text", request.require_non_empty_text)
+    put_bool("require_non_zero_rect", request.require_non_zero_rect)
+
+    put_float("min_x_ratio", request.min_x_ratio)
+    put_float("max_x_ratio", request.max_x_ratio)
+    put_float("min_y_ratio", request.min_y_ratio)
+    put_float("max_y_ratio", request.max_y_ratio)
+
+    return filters
+
+
+def _to_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _parse_contact_unread_fields(item: Dict[str, Any]) -> Dict[str, Any]:
+    role = str(item.get("role") or "").lower()
+    depth = _to_int(item.get("depth"), -1)
+    source_text = str(item.get("text") or item.get("name") or "").strip()
+
+    if depth != 15 or "list item" not in role or not source_text:
+        return item
+
+    name_match = re.match(r"^\s*([^\s]+)", source_text)
+    unread_match = re.search(r"(?:\s|^)([1-9][0-9]?)\s*条未读", source_text)
+
+    contact_name = name_match.group(1) if name_match else ""
+    unread_count = int(unread_match.group(1)) if unread_match else 0
+
+    item["contact_name"] = contact_name
+    item["unread_count"] = unread_count
+    item["has_unread"] = unread_count > 0
+    return item
+
+
+def _append_chat_order(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    chat_items = []
+    for idx, row in enumerate(items):
+        role = str(row.get("role") or "").lower()
+        depth = _to_int(row.get("depth"), -1)
+        if depth == 14 and "list item" in role:
+            y = _to_int(row.get("y"), 0)
+            chat_items.append((idx, y))
+
+    chat_items.sort(key=lambda x: x[1])
+    for order, (source_idx, _) in enumerate(chat_items, start=1):
+        items[source_idx]["chat_order"] = order
+
+    return items
 
 
 @router.get("/status")
@@ -428,3 +574,224 @@ async def generate_annotated_screenshot(request: GenerateAnnotatedScreenshotRequ
     except Exception as e:
         logger.error(f"生成标注截图失败: {e}")
         raise HTTPException(status_code=500, detail=f"生成标注截图失败: {str(e)}")
+
+
+@router.get("/atomic/profiles")
+async def list_atomic_profiles():
+    """列出当前 C++ AT-SPI 原子控件配置名。"""
+    if not rpa_available:
+        raise HTTPException(status_code=500, detail="C++ RPA模块不可用")
+
+    try:
+        manager = get_wechat_manager()
+        profiles = manager.list_atomic_profiles()
+        return {
+            "success": True,
+            "profiles": profiles,
+            "count": len(profiles),
+        }
+    except Exception as e:
+        logger.error(f"获取原子控件配置列表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取原子控件配置列表失败: {str(e)}")
+
+
+@router.post("/atomic/profile/refresh")
+async def refresh_atomic_profile(request: RefreshAtomicProfileRequest):
+    """根据当前微信 AT-SPI 树，返回指定 profile 的重建建议参数。"""
+    if not rpa_available:
+        raise HTTPException(status_code=500, detail="C++ RPA模块不可用")
+
+    try:
+        manager = get_wechat_manager()
+        suggestion = manager.refresh_atomic_profile(
+            request.profile_name,
+            int(request.max_nodes),
+            int(request.max_depth),
+        )
+        return {
+            "success": True,
+            "profile_name": request.profile_name,
+            "suggestion": suggestion,
+            "message": "已生成重建建议" if suggestion else "未生成建议，请确认当前界面与 profile 是否匹配",
+        }
+    except Exception as e:
+        logger.error(f"生成原子控件重建建议失败: {e}")
+        raise HTTPException(status_code=500, detail=f"生成原子控件重建建议失败: {str(e)}")
+
+
+@router.post("/atomic/chat/discover")
+async def discover_chat_atomic_groups(request: DiscoverAtomicRequest):
+    """发现聊天消息原子容器，返回可直接用于前端重建的分组节点。"""
+    if not rpa_available:
+        raise HTTPException(status_code=500, detail="C++ RPA模块不可用")
+
+    try:
+        manager = get_wechat_manager()
+        nodes = manager.find_chat_atomic_groups(int(request.max_nodes), int(request.max_depth))
+        return {
+            "success": True,
+            "items": nodes,
+            "count": len(nodes),
+        }
+    except Exception as e:
+        logger.error(f"发现聊天原子容器失败: {e}")
+        raise HTTPException(status_code=500, detail=f"发现聊天原子容器失败: {str(e)}")
+
+
+@router.post("/atomic/popup/discover")
+async def discover_popup_atomic_controls(request: DiscoverAtomicRequest):
+    """发现当前弹窗相关的原子控件节点（菜单项/菜单容器）。"""
+    if not rpa_available:
+        raise HTTPException(status_code=500, detail="C++ RPA模块不可用")
+
+    try:
+        manager = get_wechat_manager()
+        nodes = manager.detect_popup_atomic_controls(int(request.max_nodes), int(request.max_depth))
+        return {
+            "success": True,
+            "items": nodes,
+            "count": len(nodes),
+        }
+    except Exception as e:
+        logger.error(f"发现弹窗原子控件失败: {e}")
+        raise HTTPException(status_code=500, detail=f"发现弹窗原子控件失败: {str(e)}")
+
+
+@router.get("/atomic/query/presets")
+async def list_atomic_query_presets():
+    """返回常用原子查询预设，便于前端一键加载。"""
+    return {
+        "success": True,
+        "presets": [
+            {
+                "name": "contacts_depth15_unread",
+                "label": "联系人区域(深度15 list item + 未读解析)",
+                "filters": {
+                    "expected_depth": 15,
+                    "role_contains": "list item",
+                    "require_non_zero_rect": True,
+                    "require_showing": True,
+                    "parse_contact_unread": True,
+                },
+            },
+            {
+                "name": "chat_depth14_messages",
+                "label": "聊天显示区(深度14 list item，按序)",
+                "filters": {
+                    "expected_depth": 14,
+                    "role_contains": "list item",
+                    "require_non_zero_rect": True,
+                    "require_showing": True,
+                    "include_chat_order": True,
+                },
+            },
+            {
+                "name": "menu_buttons_depth6",
+                "label": "菜单栏按钮(深度6 button)",
+                "filters": {
+                    "expected_depth": 6,
+                    "role_contains": "button",
+                    "require_non_zero_rect": True,
+                    "require_non_empty_name": True,
+                },
+            },
+            {
+                "name": "send_button_depth15",
+                "label": "发送按钮(深度15 button + 发送(S))",
+                "filters": {
+                    "expected_depth": 15,
+                    "role_contains": "button",
+                    "name_contains": "发送(S)",
+                    "require_non_zero_rect": True,
+                },
+            },
+            {
+                "name": "chat_function_buttons_depth16",
+                "label": "聊天功能按钮(深度16 button)",
+                "filters": {
+                    "expected_depth": 16,
+                    "role_contains": "button",
+                    "require_non_zero_rect": True,
+                    "require_non_empty_name": True,
+                },
+            },
+        ],
+    }
+
+
+@router.post("/atomic/query")
+async def query_atomic_controls_advanced(request: AtomicQueryRequest):
+    """多维原子控件查询：深度/名称/编码(path)/角色/状态/位置等。"""
+    if not rpa_available:
+        raise HTTPException(status_code=500, detail="C++ RPA模块不可用")
+
+    try:
+        manager = get_wechat_manager()
+        filters = _build_atomic_query_filters(request)
+        items = manager.query_atomic_controls(filters, int(request.scan_max_nodes), int(request.scan_max_depth))
+
+        normalized: List[Dict[str, Any]] = []
+        for row in items:
+            node = dict(row)
+
+            if request.require_non_empty_name_or_text:
+                if not str(node.get("name") or "").strip() and not str(node.get("text") or "").strip():
+                    continue
+
+            if request.parse_contact_unread:
+                node = _parse_contact_unread_fields(node)
+
+            normalized.append(node)
+
+        sort_by = str(request.sort_by or "position").strip().lower()
+        sort_order = str(request.sort_order or "asc").strip().lower()
+        reverse = sort_order == "desc"
+
+        if sort_by == "depth":
+            normalized.sort(key=lambda x: (_to_int(x.get("depth"), 999), _to_int(x.get("y"), 0), _to_int(x.get("x"), 0)), reverse=reverse)
+        elif sort_by == "name":
+            normalized.sort(key=lambda x: str(x.get("name") or x.get("text") or "").lower(), reverse=reverse)
+        else:
+            normalized.sort(key=lambda x: (_to_int(x.get("y"), 0), _to_int(x.get("x"), 0), _to_int(x.get("depth"), 999)), reverse=reverse)
+
+        if request.include_chat_order:
+            normalized = _append_chat_order(normalized)
+
+        limited = normalized[: int(request.limit)]
+        return {
+            "success": True,
+            "count": len(limited),
+            "total": len(normalized),
+            "filters": filters,
+            "items": limited,
+        }
+    except Exception as e:
+        logger.error(f"原子控件高级查询失败: {e}")
+        raise HTTPException(status_code=500, detail=f"原子控件高级查询失败: {str(e)}")
+
+
+@router.post("/atomic/action/execute")
+async def execute_atomic_action(request: AtomicActionExecuteRequest):
+    """执行统一原子控件动作（click/activate/input_text）。"""
+    if not rpa_available:
+        raise HTTPException(status_code=500, detail="C++ RPA模块不可用")
+
+    try:
+        manager = get_wechat_manager()
+        action_spec = {
+            "action_type": str(request.action_type or "click"),
+            "profile_name": str(request.profile_name or "").strip(),
+            "text": str(request.text or ""),
+            "max_nodes": str(int(request.max_nodes)),
+            "max_depth": str(int(request.max_depth)),
+        }
+        execution = manager.execute_atomic_action(action_spec)
+        success = str(execution.get("success", "0")) == "1"
+        return {
+            "success": success,
+            "execution": execution,
+            "message": execution.get("message", "执行完成"),
+        }
+    except Exception as e:
+        logger.error(f"执行原子控件动作失败: {e}")
+        raise HTTPException(status_code=500, detail=f"执行原子控件动作失败: {str(e)}")

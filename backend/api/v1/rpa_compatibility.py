@@ -1508,18 +1508,33 @@ def _build_geometry_layer(window_info: Dict[str, Any]) -> Dict[str, Any]:
 
 def _resolve_annotation_bounds(
     annotation: Dict[str, Any],
-    candidate_by_id: Dict[str, Dict[str, Any]]
+    candidate_by_id: Dict[str, Dict[str, Any]],
+    window_info: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, int]]:
+    def _normalize_input_bounds(raw_bounds: Dict[str, Any]) -> Optional[Dict[str, int]]:
+        if not isinstance(raw_bounds, dict):
+            return None
+
+        if isinstance(window_info, dict) and window_info:
+            normalized_for_window = _normalize_region_bounds_for_window(raw_bounds, window_info)
+            if normalized_for_window:
+                return normalized_for_window
+
+        normalized = _normalize_bounds(raw_bounds)
+        if normalized["width"] > 0 and normalized["height"] > 0:
+            return normalized
+        return None
+
     direct_bounds = annotation.get("bounds")
     if isinstance(direct_bounds, dict):
-        normalized = _normalize_bounds(direct_bounds)
-        if normalized["width"] > 0 and normalized["height"] > 0:
+        normalized = _normalize_input_bounds(direct_bounds)
+        if normalized:
             return normalized
 
     region_id = str(annotation.get("region_id", "")).strip()
     if region_id and region_id in candidate_by_id:
-        bounds = _normalize_bounds(candidate_by_id[region_id].get("bounds", {}))
-        if bounds["width"] > 0 and bounds["height"] > 0:
+        bounds = _normalize_input_bounds(candidate_by_id[region_id].get("bounds", {}))
+        if bounds:
             return bounds
 
     return None
@@ -1593,6 +1608,17 @@ def _ensure_image_ndarray(image: Any) -> np.ndarray:
     return image
 
 
+def _safe_cv2_label_text(text: str, fallback: str = "node") -> str:
+    raw = str(text or "").strip()
+    if not raw:
+        return fallback
+    try:
+        encoded = raw.encode("ascii", errors="ignore").decode("ascii").strip()
+    except Exception:
+        encoded = ""
+    return encoded or fallback
+
+
 def _annotate_image(image: np.ndarray, elements: List[Dict[str, Any]]) -> np.ndarray:
     height, width = image.shape[:2]
     for element in elements:
@@ -1614,9 +1640,14 @@ def _annotate_image(image: np.ndarray, elements: List[Dict[str, Any]]) -> np.nda
             continue
 
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        label = _safe_cv2_label_text(
+            f"{element.get('id', '')}:{element.get('type', '')}" if element.get("id") else str(element.get("name", "")),
+            fallback="node",
+        )
+
         cv2.putText(
             image,
-            element.get("name", "unknown"),
+            label,
             (x1, max(18, y1 - 6)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
@@ -3570,9 +3601,11 @@ async def build_stable_ui_profile(request: BuildProfileRequest):
         stable_elements: List[Dict[str, Any]] = []
         unresolved_annotations: List[Dict[str, Any]] = []
 
+        window_reference = profile.get("window_lock", {}) if isinstance(profile, dict) else {}
+
         for index, ann in enumerate(request.annotations):
             ann_dict = ann.model_dump()
-            resolved_bounds = _resolve_annotation_bounds(ann_dict, candidate_by_id)
+            resolved_bounds = _resolve_annotation_bounds(ann_dict, candidate_by_id, window_reference)
             if not resolved_bounds:
                 unresolved_annotations.append({
                     "region_id": ann.region_id,

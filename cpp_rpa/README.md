@@ -97,6 +97,33 @@ manager.send_message("联系人名称", "你好，这是一条测试消息")
 
 ### 高级功能
 
+#### AT-SPI 原子控件/容器（新）
+
+```python
+import wechat_rpa
+
+manager = wechat_rpa.WeChatManager()
+manager.initialize()
+
+# 1) 按过滤条件查询控件
+nodes = manager.query_atomic_controls({
+   "role_equals": "push button",
+   "expected_depth": "15",
+   "name_contains": "发送",
+   "require_showing": "true",
+   "require_visible": "true",
+})
+
+# 2) 通过 profile 获取聊天容器
+container_items = manager.get_atomic_container_by_profile("chat_message_items", "parent_path")
+
+# 3) 通过 profile 执行动作
+manager.input_text_atomic_control("chat_input_box", "你好，这是AT-SPI输入")
+manager.click_atomic_control("chat_send_button")
+```
+
+配置文件位于 `config/atspi_atomic_profiles.ini`，微信版本变化后优先修改 profile 参数。
+
 #### 截图和OCR
 
 ```python

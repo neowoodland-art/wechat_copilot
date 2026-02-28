@@ -4,6 +4,15 @@ set -e
 
 echo "=== 构建C++ RPA模块 (增强版) ==="
 
+# 选择Python解释器（优先当前虚拟环境）
+if [ -n "$VIRTUAL_ENV" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
+    PYTHON_BIN="$VIRTUAL_ENV/bin/python"
+else
+    PYTHON_BIN="python3"
+fi
+
+echo "使用Python解释器: $PYTHON_BIN"
+
 # 检查必要的依赖
 echo "检查必要依赖..."
 if ! command -v cmake &> /dev/null; then
@@ -16,15 +25,15 @@ if ! command -v g++ &> /dev/null; then
     exit 1
 fi
 
-if ! command -v python3 &> /dev/null; then
-    echo "❌ python3 未安装，请先安装python3"
+if ! command -v "$PYTHON_BIN" &> /dev/null; then
+    echo "❌ Python解释器不可用: $PYTHON_BIN"
     exit 1
 fi
 
 # 检查pybind11是否可用
-if ! python3 -c "import pybind11" &> /dev/null; then
+if ! "$PYTHON_BIN" -c "import pybind11" &> /dev/null; then
     echo "⚠️ pybind11 未安装，尝试安装..."
-    pip3 install pybind11
+    "$PYTHON_BIN" -m pip install pybind11
 fi
 
 # 创建构建目录
@@ -38,7 +47,7 @@ rm -f wechat_rpa*.so 2>/dev/null || true
 
 # 运行CMake配置
 echo "运行CMake配置..."
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="$PYTHON_BIN"
 
 # 编译
 echo "编译项目..."
@@ -56,7 +65,7 @@ if [ $? -eq 0 ]; then
         # 尝试导入测试
         echo "尝试Python导入测试..."
         cd ..
-        if python3 -c "import sys; sys.path.insert(0, './build'); import wechat_rpa; print('✅ Python导入测试成功')"; then
+        if "$PYTHON_BIN" -c "import sys; sys.path.insert(0, './build'); import wechat_rpa; print('✅ Python导入测试成功')"; then
             echo "✅ 模块可以正常导入"
         else
             echo "⚠️ 模块导入测试失败，但编译成功"

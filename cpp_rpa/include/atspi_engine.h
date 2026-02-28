@@ -24,6 +24,54 @@ typedef void* AtspiComponent;
 
 namespace wechat_rpa {
 
+struct ATSPINodeInfo {
+    int index = -1;
+    int depth = 0;
+    int parent_index = -1;
+    int sibling_index = 0;
+    std::string path;
+    std::string parent_path;
+    std::string name;
+    std::string role;
+    std::string text;
+    std::string parent_role;
+    Region region{0, 0, 0, 0};
+    bool visible = false;
+    bool showing = false;
+    bool editable = false;
+    bool focusable = false;
+    bool sensitive = false;
+};
+
+struct ATSPIQuery {
+    std::string role_equals;
+    std::string role_contains;
+    std::string name_contains;
+    std::string text_contains;
+    std::string parent_role_equals;
+    std::string path_contains;
+    int expected_depth = -1;
+    int min_depth = -1;
+    int max_depth = -1;
+    bool require_visible = false;
+    bool require_showing = false;
+    bool require_editable = false;
+    bool require_focusable = false;
+    bool require_sensitive = false;
+    bool require_non_empty_name = false;
+    bool require_non_empty_text = false;
+    bool require_non_zero_rect = false;
+    double min_x_ratio = -1.0;
+    double max_x_ratio = -1.0;
+    double min_y_ratio = -1.0;
+    double max_y_ratio = -1.0;
+};
+
+struct ATSPIAtomicContainer {
+    std::string key;
+    std::vector<ATSPINodeInfo> items;
+};
+
 /**
  * ATSPI引擎 - Linux辅助功能API
  * 用于直接访问UI控件树，不依赖图像识别
@@ -147,6 +195,28 @@ public:
         int max_depth = -1,
         bool include_text = true,
         bool deduplicate = false
+    );
+
+    std::vector<ATSPINodeInfo> capture_tree_nodes(
+        AtspiAccessible* root,
+        int max_nodes = 1200,
+        int max_depth = -1,
+        bool include_text = true
+    );
+
+    std::vector<ATSPINodeInfo> query_nodes(
+        AtspiAccessible* root,
+        const ATSPIQuery& query,
+        int max_nodes = 1200,
+        int max_depth = -1
+    );
+
+    std::vector<ATSPIAtomicContainer> build_atomic_containers(
+        AtspiAccessible* root,
+        const ATSPIQuery& query,
+        const std::string& group_by = "parent_path",
+        int max_nodes = 1600,
+        int max_depth = -1
     );
 
 private:

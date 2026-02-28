@@ -10,7 +10,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from db.session import create_tables
-from api.v1 import users, messages, sop, rpa, wechat_ops, layout_control, atspi_analysis, llm_core, crm_profile, wechat_api_framework
+from api.v1 import users, messages, sop, rpa, rpa_control, wechat_ops, layout_control, atspi_analysis, llm_core, crm_profile, wechat_api_framework, rpa_definition
 from api.v1.rpa_compatibility import router as rpa_compat_router
 
 # 从backend.core导入配置
@@ -50,6 +50,7 @@ app.include_router(users.router, prefix="/api/v1", tags=["users"])
 app.include_router(messages.router, prefix="/api/v1", tags=["messages"])
 app.include_router(sop.router, prefix="/api/v1", tags=["sop"])
 app.include_router(rpa.router, prefix="/api/v1/rpa", tags=["rpa"])
+app.include_router(rpa_control.router, prefix="/api/v1", tags=["rpa_control"])
 app.include_router(rpa_compat_router, prefix="/api/v1", tags=["rpa_compatibility"])
 app.include_router(wechat_ops.router, prefix="/api/v1", tags=["wechat_ops"])
 app.include_router(sop.router, prefix="/api/v1", tags=["sop_management"])
@@ -59,6 +60,7 @@ app.include_router(atspi_analysis.router, prefix="/api", tags=["atspi_analysis_c
 app.include_router(llm_core.router, prefix="/api/v1", tags=["llm_core"])
 app.include_router(crm_profile.router, prefix="/api/v1", tags=["crm_profile"])
 app.include_router(wechat_api_framework.router, prefix="/api/v1", tags=["wechat_api_framework"])
+app.include_router(rpa_definition.router, prefix="/api/v1", tags=["rpa_definition"])
 
 
 # 条件性包含UI分析和消息操作路由
